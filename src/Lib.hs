@@ -1,47 +1,64 @@
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE QuasiQuotes #-}
+{-# LANGUAGE LambdaCase #-}
 module Lib where
 
 import qualified Data.Text as T
 import Data.Graph.Inductive
 import Data.Graph.Inductive.Graph
+import qualified Data.Graph.Inductive.NodeMap as NM
 import Text.RawString.QQ (r)
 import Control.Monad
 import qualified Data.Map as M
+import Data.Traversable
 
 type Row = Int
 type Col = Int
 type Coord = (Row, Col)
 
-data Dir = N | E | S | W
-  deriving (Eq, Show, Ord)
+data Dir
+    = N
+    | NE
+    | E
+    | SE
+    | S
+    | SW
+    | W
+    | NW
+    deriving (Eq, Show, Ord)
 
 type N loc val = (loc, val)
 
-graphFromText :: T.Text -> Gr (N Coord Char) Dir
-graphFromText txt = mkGraph nodes edges
+graphFromText :: T.Text -> (M.Map Coord Char, NodeMap Coord, Gr Coord Dir)
+graphFromText txt = (labelChars rows, coordMap, gridGraph)
   where
-    nodes :: [LNode (N Coord Char)]
-    nodes = zip [0..] (labelChars rows)
-    coordMap :: M.Map Coord Node
-    coordMap = M.fromList (fmap toMapping nodes)
-    toMapping :: (LNode (N Coord Char))-> (Coord, Node)
-    toMapping (node, (coord, _)) = (coord, node)
-    edges :: [LEdge Dir]
-    edges = gridEdges coordMap numRows numCols
+    nodes :: M.Map Coord Char
+    nodes = (labelChars rows)
+    (coordMap, gridGraph) = mkGridGraph numRows numCols
     (numRows, numCols, rows) = rectangularize txt
 
-gridEdges :: M.Map Coord Node -> Row -> Col -> [LEdge Dir]
-gridEdges coordMap rows cols = do
-    r <- [0..rows - 1]
-    c <- [0..cols - 1]
-    Just node <- pure $ M.lookup (r, c) coordMap
-    (r', c', dir) <- [(r, c + 1, E), (r + 1, c, S)]
-    Just otherNode <- pure $ M.lookup (r', c') coordMap
-    return (node, otherNode, dir)
+mkGridGraph :: Row -> Col -> (NodeMap Coord, Gr Coord Dir)
+mkGridGraph rows cols = snd . NM.run empty $ do
+    let slots = [(r, c) | r <- [0..rows - 1], c <- [0..cols - 1]]
+    for slots insMapNodeM
+    for slots $ \(r, c) -> do
+        let addE = addEdge (r, c)
+        addE N  (r - 1, c    )
+        addE NE (r - 1, c + 1)
+        addE E  (r    , c + 1)
+        addE SE (r + 1, c + 1)
+        addE S  (r + 1, c    )
+        addE SW (r + 1, c - 1)
+        addE W  (r    , c - 1)
 
-labelChars :: [T.Text] -> [(Coord, Char)]
-labelChars rows = concat labeled
+addEdge :: Ord a => a -> e -> a -> NodeMapM a e Gr ()
+addEdge current e other = do
+    mkEdgeM (current, other, e) >>= \case
+      Nothing -> return ()
+      Just _ -> void $ insMapEdgeM (current, other, e)
+
+labelChars :: [T.Text] -> M.Map Coord Char
+labelChars rows = M.fromList $ concat labeled
     where
       lines' :: [String]
       lines' = T.unpack <$> rows
@@ -63,3 +80,7 @@ txt = [r|one
 a longer thing
 there
 |]
+
+when_ :: Monad m => Bool -> m a -> m ()
+when_ cond = when cond . void
+
