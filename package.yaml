@@ -29,6 +29,8 @@ dependencies:
 - raw-strings-qq
 - containers
 - mtl
+- adjunctions
+- distributive
 
 library:
   source-dirs: src
