@@ -35,6 +35,10 @@ dependencies:
 library:
   source-dirs: src
 
+ghc-options:
+  - -Wall
+  - -fno-warn-name-shadowing
+
 executables:
   wave-function-collapse-exe:
     main:                Main.hs
