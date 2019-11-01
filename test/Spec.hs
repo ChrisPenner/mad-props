@@ -1,2 +1,6 @@
+import Test.Hspec
+import qualified Graph
+
 main :: IO ()
-main = putStrLn "Test suite not yet implemented"
+main = hspec $ do
+    describe "graph" Graph.spec
