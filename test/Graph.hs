@@ -12,6 +12,7 @@ import qualified Text.RawString.QQ as R
 import qualified Data.Text as T
 import Data.Foldable
 import Data.Functor.Rep as R
+import Backtrack
 
 simplest :: T.Text
 simplest = T.filter (/= ' ')
@@ -126,5 +127,6 @@ spec = do
             let srcGrid = gridFromText complexText
             let positions = collectSuperPositions srcGrid
             let startGrid = generateGrid positions 5 5
-            let result = gridToText . fmap (flip R.index C) $ solve startGrid
-            result `shouldBe` complexResult
+            runBacktrack' (solve startGrid) $ \x -> do
+                let result = gridToText . fmap (flip R.index C) $ x
+                result `shouldBe` complexResult

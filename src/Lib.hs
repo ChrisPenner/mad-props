@@ -28,6 +28,8 @@ import qualified Data.List as L
 import GHC.Stack
 import Data.Foldable
 import Backtrack
+import Control.Monad.Trans.Class
+import Control.Monad.IO.Class
 
 testText :: T.Text
 testText = [R.r|one
@@ -59,32 +61,32 @@ minWavinessNode grid = fmap node' . ufold go Nothing $ grid ^. graph
     entropyOf :: Context (SuperPos p) b -> Int
     entropyOf ctx = S.size (lab' ctx)
 
-solve :: Eq p => Grid (SuperPos (Option p)) -> Grid (Option p)
-solve grid = case step grid of
-    Nothing -> pickFirst <$> grid
+solve :: Eq p => Grid (SuperPos (Option p)) -> Backtrack (Grid (Option p))
+solve grid = step grid >>= \case
+    Nothing -> return (pickFirst <$> grid)
     Just grid' -> solve grid'
 
-step :: Eq p => Grid (SuperPos (Option p)) -> Maybe (Grid (SuperPos (Option p)))
+step :: Eq p => Grid (SuperPos (Option p)) -> Backtrack (Maybe (Grid (SuperPos (Option p))))
 step grid = case minWavinessNode grid of
-    Nothing -> Nothing
-    Just n -> Just $ collapse gridFilter n grid
+    Nothing -> return Nothing
+    Just n -> Just <$> collapse gridFilter n grid
 
 
 pickFirst :: HasCallStack =>  S.Set a -> a
 pickFirst = S.elemAt 0
 
-collapse :: forall p e. (p -> Dir -> (p -> Bool)) -> Node -> Grid (SuperPos p) -> Grid (SuperPos p)
-collapse nFilter n grid = newGraph
+collapse :: forall p e. (p -> Dir -> (p -> Bool)) -> Node -> Grid (SuperPos p) -> Backtrack (Grid (SuperPos p))
+collapse nFilter n grid = do
+    choice <- selectWithTrigger (const $ print "backtrack") $ grid ^.. graph . ctxAt n . ctxLabel . folded
+    lift $ guard (allOf (graph . allContexts . ctxLabel . to S.size) (>0) grid)
+    return $ newGraph choice
   where
-    newGraph = grid
+    newGraph choice = grid
         & graph . ctxAt n . ctxLabel .~ S.singleton choice
         &~ for propTargets
-             (\(e, n') -> graph . ctxAt n' . ctxLabel . filtered ((>1) . S.size) %= S.filter (propFilter e))
+             (\(e, n') -> graph . ctxAt n' . ctxLabel . filtered ((>1) . S.size) %= S.filter (nFilter choice e))
     propTargets :: [(Dir, Node)]
     propTargets = grid ^.. graph . ctxAt n . ctxSuc . traversed
-    choice :: p
-    choice = grid ^?! graph . ctxAt n . ctxLabel . folded
-    propFilter = nFilter choice
 
 simplePos = collectSuperPositions $ gridFromText simpleText
 
@@ -100,12 +102,12 @@ laminate txts = T.unlines pieces
     pieces =
         getZipList . getAp $ foldMap (Ap . ZipList . fmap (<> " ") . T.lines) txts
 
-debugStepper :: Grid (SuperPos (Option Char)) -> IO ()
+debugStepper :: Grid (SuperPos (Option Char)) -> Backtrack ()
 debugStepper gr = do
     let currentStep = gridToText $ forceSolve gr
     let waviness = gridToText $ fmap szToChar gr
-    T.putStrLn $ laminate [currentStep, waviness]
-    case step gr of
+    liftIO . T.putStrLn $ laminate [currentStep, waviness]
+    step gr >>= \case
         Nothing -> return ()
         Just gr' -> do
             -- print $ (lab (gr' ^. graph) <$> minWavinessNode gr')
@@ -116,17 +118,10 @@ debugStepper gr = do
                | otherwise = head $ show (S.size s)
 
 test :: IO ()
-test = do
+test = runBacktrack $ do
     let srcGrid = gridFromText simpleText
     let positions = collectSuperPositions srcGrid
-    -- T.putStrLn $ graphToText rows cols srcNM srcGr
     let startGrid = generateGrid positions 5 5
-    -- print (startGrid & step)
-    -- T.putStrLn $ gridToText . forceSolve . fromJust $ (startGrid & step)
-    traverse_ (putStrLn . printOption) positions
+    traverse_ (liftIO . putStrLn . printOption) positions
     debugStepper startGrid
-    T.putStrLn . gridToText . fmap (flip R.index C) $ solve startGrid
-    -- let solved = flip R.index C <$> solve startGrid
-    -- T.putStrLn $ gridToText solved
-
     return ()

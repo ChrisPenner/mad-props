@@ -6,13 +6,21 @@ import Control.Applicative
 import Data.Foldable
 import Text.Printf
 
-select :: (Alternative m, Foldable f, Functor f) => f a -> ContT r m a
+type Backtrack a = ContT () IO a
+
+select :: (Foldable f, Functor f) => f a -> Backtrack a
 select fa = ContT $ \k -> asum (k <$> fa)
 
-selectWithTrigger :: (Alternative m, Foldable f, Functor f) => (a -> m ()) -> f a -> ContT r m a
+selectWithTrigger :: (Foldable f, Functor f) => (a -> IO ()) -> f a -> Backtrack a
 selectWithTrigger trig (toList -> (x:xs)) =
     ContT $ \k -> k x <|> asum ((\a -> trig a *> k a) <$> xs)
 selectWithTrigger _ fa = ContT $ \k -> asum (k <$> fa)
+
+runBacktrack :: Backtrack () -> IO ()
+runBacktrack = flip runContT return
+
+runBacktrack' :: Backtrack a -> (a -> IO ()) -> IO ()
+runBacktrack' = runContT
 
 
 backtracktest :: IO ()

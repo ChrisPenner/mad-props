@@ -7,6 +7,9 @@ import Data.Graph.Inductive.Graph
 import Control.Lens hiding ((&), Context)
 import Control.Applicative
 
+allContexts :: Fold (Gr a e) (Context a e)
+allContexts = folding (ufold (:) [])
+
 ctxAt :: Node -> Traversal' (Gr a e) (Context a e)
 ctxAt n f gr =
     case match n gr of

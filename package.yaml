@@ -33,6 +33,7 @@ dependencies:
 - distributive
 - hspec
 - monad-dijkstra
+- transformers
 
 library:
   source-dirs: src
