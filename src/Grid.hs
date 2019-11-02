@@ -3,24 +3,22 @@
 {-# LANGUAGE DeriveFoldable #-}
 {-# LANGUAGE DeriveTraversable #-}
 {-# LANGUAGE LambdaCase #-}
+{-# LANGUAGE TemplateHaskell #-}
 module Grid where
 
 import qualified Data.Text as T
-import qualified Data.Text.IO as T
 import Data.Graph.Inductive hiding ((&))
 import qualified Data.Graph.Inductive.NodeMap as NM
-import qualified Text.RawString.QQ as R
 import Control.Monad
 import qualified Data.Map as M
 import qualified Data.Set as S
-import Data.Traversable
 import Data.Foldable
 import Data.Functor.Rep as R
 import Data.Distributive
 import qualified Data.List as L
 import Data.Maybe
-import GraphLens
 import Control.Lens hiding (Context)
+
 
 type Coord = (Row, Col)
 type Row = Int
@@ -37,6 +35,19 @@ data Dir
     | NW
     | C
     deriving (Eq, Show, Ord)
+
+data Grid a =
+    Grid { _graph   :: Gr a Dir
+         , _nodeMap :: (NodeMap Coord)
+         , _rows    :: Row
+         , _cols    :: Col
+         }
+    deriving (Show)
+
+makeLenses ''Grid
+
+instance Functor Grid where
+  fmap f = graph %~ nmap f
 
 
 instance Distributive Option where
@@ -69,16 +80,15 @@ data Option a =
   deriving (Show, Eq, Ord, Functor, Foldable, Traversable)
 
 
-graphFromText :: T.Text -> (Row, Col, NodeMap Coord, Gr Char Dir)
-graphFromText txt = (numRows, numCols, coordMap, labeledGraph)
+gridFromText :: T.Text -> Grid Char
+gridFromText txt = labeledGrid
   where
     nodeChars :: M.Map Coord Char
     nodeChars = (labelChars rows)
-    (coordMap, gridGraph) = mkGridGraph numRows numCols
+    grid = mkGridGraph numRows numCols
     (numRows, numCols, rows) = rectangularize txt
-    labeledGraph :: Gr Char Dir
-    labeledGraph
-      = nmap (\c -> (M.findWithDefault ' ' c nodeChars)) gridGraph
+    labeledGrid :: Grid Char
+    labeledGrid = (\c -> (M.findWithDefault ' ' c nodeChars)) <$> grid
 
 
 rectangularize :: T.Text -> (Row, Col, [T.Text])
@@ -88,20 +98,27 @@ rectangularize txt = (length lines', maxLength, padded)
     maxLength = maximum . fmap T.length $ lines'
     padded = T.justifyLeft maxLength ' ' <$> lines'
 
-mkGridGraph :: Row -> Col -> (NodeMap Coord, Gr Coord Dir)
-mkGridGraph rows cols = snd . NM.run empty $ do
-    let slots = [(r, c) | r <- [0..rows - 1], c <- [0..cols - 1]]
-    for_ slots insMapNodeM
-    for_ slots $ \(r, c) -> do
-        let addE = addEdge (r, c)
-        addE NW (r - 1, c - 1)
-        addE N  (r - 1, c    )
-        addE NE (r - 1, c + 1)
-        addE E  (r    , c + 1)
-        addE SE (r + 1, c + 1)
-        addE S  (r + 1, c    )
-        addE SW (r + 1, c - 1)
-        addE W  (r    , c - 1)
+mkGridGraph :: Row -> Col -> Grid Coord
+mkGridGraph rows cols =
+    Grid { _graph   = gr
+         , _nodeMap = nodemap
+         , _rows    = rows
+         , _cols    = cols
+         }
+  where
+    (_, (nodemap, gr)) = NM.run empty $ do
+           let slots = [(r, c) | r <- [0..rows - 1], c <- [0..cols - 1]]
+           for_ slots insMapNodeM
+           for_ slots $ \(r, c) -> do
+               let addE = addEdge (r, c)
+               addE NW (r - 1, c - 1)
+               addE N  (r - 1, c    )
+               addE NE (r - 1, c + 1)
+               addE E  (r    , c + 1)
+               addE SE (r + 1, c + 1)
+               addE S  (r + 1, c    )
+               addE SW (r + 1, c - 1)
+               addE W  (r    , c - 1)
 
 addEdge :: Ord a => a -> e -> a -> NodeMapM a e Gr ()
 addEdge current e other = do
@@ -122,20 +139,19 @@ labelChars rows = M.fromList $ concat labeled
       reassoc row (col, c) = ((row, col), c)
 
 
-graphToText :: Row -> Col -> NodeMap Coord -> Gr Char e -> T.Text
-graphToText rows cols nm gr = T.pack . unlines $ do
-    r <- [0..rows - 1]
+gridToText :: Grid Char -> T.Text
+gridToText grid = T.pack . unlines $ do
+    r <- [0..(grid ^. rows) - 1]
     return $ do
-        c <- [0..cols - 1]
-        return . fromJust $ lab gr (fst $ mkNode_ nm (r, c))
+        c <- [0..(grid ^. cols) - 1]
+        return . fromJust $ lab (grid ^. graph) (fst $ mkNode_ (grid ^. nodeMap) (r, c))
 
 
-printOption :: Option (Maybe Char) -> String
-printOption o = unlines (fmap ((fromMaybe 'X') . R.index o) <$>
+printOption :: Option Char -> String
+printOption o = unlines (fmap (R.index o) <$>
     [ [NW, N, NE]
     , [W,  C, E ]
     , [SW, S, SE]])
-
 
 gridFilter :: (Eq a) => Option a -> Dir -> (Option a -> Bool)
 gridFilter choice dir other =
@@ -159,10 +175,11 @@ type Position = Option Char
 type SuperPos a = S.Set a
 
 
-collectSuperPositions :: Gr Char Dir -> S.Set Position
-collectSuperPositions gr
+collectSuperPositions :: Grid Char -> S.Set Position
+collectSuperPositions grid
   = S.fromList . catMaybes $ toPosition <$> allNodes
     where
+      gr = grid ^. graph
       allNodes = nodes gr
       toPosition :: Node -> Maybe Position
       toPosition n =

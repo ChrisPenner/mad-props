@@ -32,6 +32,7 @@ dependencies:
 - adjunctions
 - distributive
 - hspec
+- monad-dijkstra
 
 library:
   source-dirs: src

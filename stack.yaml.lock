@@ -3,7 +3,14 @@
 # For more information, please see the documentation at:
 #   https://docs.haskellstack.org/en/stable/lock_files
 
-packages: []
+packages:
+- completed:
+    hackage: monad-dijkstra-0.1.1.2@sha256:4bca3eca6358f916b06501f82c7bfa4c59236af0ac8cac551854c2e928e78c37,1962
+    pantry-tree:
+      size: 333
+      sha256: 055ea4bab35e29fc8a2e4f8e2a9b3acb2219d1f074729ba9ef96308b64b11876
+  original:
+    hackage: monad-dijkstra-0.1.1.2@sha256:4bca3eca6358f916b06501f82c7bfa4c59236af0ac8cac551854c2e928e78c37,1962
 snapshots:
 - completed:
     size: 523448
