@@ -5,8 +5,15 @@ import Control.Monad.Cont
 import Control.Applicative
 import Data.Foldable
 import Text.Printf
+import System.Random.Shuffle
 
 type Backtrack a = ContT () IO a
+
+rselect :: (Foldable f, Functor f) => f a -> Backtrack a
+rselect (toList -> fa) = shuffleM fa >>= select
+
+rselectWithTrigger :: (Foldable f, Functor f) => (a -> IO ()) -> f a -> Backtrack a
+rselectWithTrigger trig (toList -> fa) = shuffleM fa >>= selectWithTrigger trig
 
 select :: (Foldable f, Functor f) => f a -> Backtrack a
 select fa = ContT $ \k -> asum (k <$> fa)

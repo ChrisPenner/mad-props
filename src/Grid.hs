@@ -18,6 +18,7 @@ import Data.Distributive
 import qualified Data.List as L
 import Data.Maybe
 import Control.Lens hiding (Context)
+import qualified Data.Set.NonEmpty as NE
 
 
 type Coord = (Row, Col)
@@ -172,12 +173,15 @@ flipDir W = E
 flipDir C = C
 
 type Position = Option Char
-type SuperPos a = S.Set a
+data SuperPos a =
+    Observed a | Unknown (NE.NESet a)
 
+collapseOption :: Option a -> a
+collapseOption = flip R.index C
 
-collectSuperPositions :: Grid Char -> S.Set Position
+collectSuperPositions :: Grid Char -> Maybe (SuperPos Position)
 collectSuperPositions grid
-  = S.fromList . catMaybes $ toPosition <$> allNodes
+  = fmap Unknown . NE.nonEmptySet . S.fromList . catMaybes $ toPosition <$> allNodes
     where
       gr = grid ^. graph
       allNodes = nodes gr
