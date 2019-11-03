@@ -7,7 +7,7 @@
 module Grid where
 
 import qualified Data.Text as T
-import Data.Graph.Inductive hiding ((&))
+import Data.Graph.Inductive as G hiding ((&))
 import qualified Data.Graph.Inductive.NodeMap as NM
 import Control.Monad
 import qualified Data.Map as M
@@ -19,6 +19,9 @@ import qualified Data.List as L
 import Data.Maybe
 import Control.Lens hiding (Context)
 import qualified Data.Set.NonEmpty as NE
+import Backtrack
+import Control.Applicative as A
+import Control.Monad.Trans
 
 
 type Coord = (Row, Col)
@@ -86,7 +89,7 @@ gridFromText txt = labeledGrid
   where
     nodeChars :: M.Map Coord Char
     nodeChars = (labelChars rows)
-    grid = mkGridGraph numRows numCols
+    grid = mkDiagGraph numRows numCols
     (numRows, numCols, rows) = rectangularize txt
     labeledGrid :: Grid Char
     labeledGrid = (\c -> (M.findWithDefault ' ' c nodeChars)) <$> grid
@@ -99,15 +102,15 @@ rectangularize txt = (length lines', maxLength, padded)
     maxLength = maximum . fmap T.length $ lines'
     padded = T.justifyLeft maxLength ' ' <$> lines'
 
-mkGridGraph :: Row -> Col -> Grid Coord
-mkGridGraph rows cols =
+mkDiagGraph :: Row -> Col -> Grid Coord
+mkDiagGraph rows cols =
     Grid { _graph   = gr
          , _nodeMap = nodemap
          , _rows    = rows
          , _cols    = cols
          }
   where
-    (_, (nodemap, gr)) = NM.run empty $ do
+    (_, (nodemap, gr)) = NM.run G.empty $ do
            let slots = [(r, c) | r <- [0..rows - 1], c <- [0..cols - 1]]
            for_ slots insMapNodeM
            for_ slots $ \(r, c) -> do
@@ -120,6 +123,25 @@ mkGridGraph rows cols =
                addE S  (r + 1, c    )
                addE SW (r + 1, c - 1)
                addE W  (r    , c - 1)
+
+mkOrthoGraph :: Row -> Col -> Grid Coord
+mkOrthoGraph rows cols =
+    Grid { _graph   = gr
+         , _nodeMap = nodemap
+         , _rows    = rows
+         , _cols    = cols
+         }
+  where
+    (_, (nodemap, gr)) = NM.run G.empty $ do
+           let slots = [(r, c) | r <- [0..rows - 1], c <- [0..cols - 1]]
+           for_ slots insMapNodeM
+           for_ slots $ \(r, c) -> do
+               let addE = addEdge (r, c)
+               addE N  (r - 1, c    )
+               addE E  (r    , c + 1)
+               addE S  (r + 1, c    )
+               addE W  (r    , c - 1)
+
 
 addEdge :: Ord a => a -> e -> a -> NodeMapM a e Gr ()
 addEdge current e other = do
@@ -148,8 +170,8 @@ gridToText grid = T.pack . unlines $ do
         return . fromJust $ lab (grid ^. graph) (fst $ mkNode_ (grid ^. nodeMap) (r, c))
 
 
-printOption :: Option Char -> String
-printOption o = unlines (fmap (R.index o) <$>
+printOption :: Option Char ->  T.Text
+printOption o = T.pack $ unlines (fmap (R.index o) <$>
     [ [NW, N, NE]
     , [W,  C, E ]
     , [SW, S, SE]])
@@ -175,9 +197,34 @@ flipDir C = C
 type Position = Option Char
 data SuperPos a =
     Observed a | Unknown (NE.NESet a)
+  deriving (Show, Foldable)
+
+superPosFilter :: (s -> Bool) -> SuperPos s -> Backtrack (SuperPos s)
+superPosFilter p o@(Observed a) = if (p a) then return o
+                                           else lift A.empty
+superPosFilter p (Unknown s) =
+    maybe (lift A.empty) (pure . Unknown) . NE.nonEmptySet $ NE.filter p s
+
+makePrisms ''SuperPos
+
+fromObserved :: SuperPos a -> a
+fromObserved (Observed a) = a
+fromObserved (Unknown _) = error "fromObserved Error!"
 
 collapseOption :: Option a -> a
 collapseOption = flip R.index C
+
+addMirrored :: SuperPos Position -> SuperPos Position
+addMirrored (Unknown xs) = Unknown . NE.union xs . NE.map flipper $ xs
+  where
+    flipper (Option nw n ne
+                    w  c e
+                    sw s se)
+      =  Option ne n nw
+                e  c  w
+                se s sw
+
+addMirrored x = x
 
 collectSuperPositions :: Grid Char -> Maybe (SuperPos Position)
 collectSuperPositions grid
@@ -188,6 +235,8 @@ collectSuperPositions grid
       toPosition :: Node -> Maybe Position
       toPosition n =
           let linked = context gr n
+           -- TODO
+           -- in Just . fmap (fromMaybe ' ') $ tabulate (findEdge linked)
            in sequenceA $ tabulate (findEdge linked)
       findEdge :: Context Char Dir -> Dir -> Maybe Char
       findEdge ctx C = Just $ lab' ctx
