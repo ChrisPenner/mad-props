@@ -131,7 +131,7 @@ step grid = MT.popMinNode >>= \case
 collapse :: forall p. (p -> Dir -> (p -> Bool)) -> Node -> Grid (SuperPos p) -> WFC (Grid (SuperPos p))
 collapse nFilter n grid = do
     -- choice <- rselectWithTrigger (const $ putStrLn "backtrack") $ grid ^.. graph . ctxAt n . ctxLabel . folded
-    choice <- rselect $ grid ^.. graph . ctxAt n . ctxLabel . folded
+    choice <- rselect $ grid ^.. graph . to (lab ?? n)  . _Just . folded
     let picked = grid & graph . ctxAt n . ctxLabel .~ Observed choice
     result <- foldM (propagate choice) picked propTargets
     return result
@@ -170,16 +170,14 @@ laminate txts = T.unlines pieces
     pieces =
         getZipList . getAp $ foldMap (Ap . ZipList . fmap (<> " ") . T.lines) txts
 
-debugStepper :: Grid (SuperPos (Option Char)) -> WFC (Grid (Option Char))
-debugStepper gr = do
-    let currentStep = gridToText $ showSuper gr
-    let waviness = gridToText $ fmap showSuperPosSize gr
-    liftIO . T.putStrLn $ laminate [currentStep, waviness]
+debugStepper :: Maybe (Grid (SuperPos (Option Char)) -> IO ()) -> Grid (SuperPos (Option Char)) -> WFC (Grid (Option Char))
+debugStepper stepHandler gr = do
+    liftIO $ maybe (return ()) ($ gr) stepHandler
     step gr >>= \case
         Left done -> return done
         Right gr' -> do
             -- print $ (lab (gr' ^. graph) <$> minWavinessNode gr')
-            debugStepper gr'
+            debugStepper stepHandler gr'
 
 showSuperPosSize :: SuperPos a -> Char
 showSuperPosSize (Observed _) = '#'
@@ -200,20 +198,19 @@ initMinTracker grid = MT.fromList (allEntropies ^.. traversed . below _Just)
       allNodes :: [LNode (SuperPos p)]
       allNodes =  grid ^.. graph . folding labNodes
 
-run :: Debug -> Int -> Int -> T.Text -> IO ()
-run debug rows cols txt = do
+run :: Maybe (Grid (SuperPos (Option Char)) -> IO ()) -> Int -> Int -> T.Text -> IO ()
+run debugHandle rows cols txt = do
     let srcGrid = gridFromText txt
     let positions = collectSuperPositions srcGrid
     liftIO $ printf "num positions: %d\n" (length . Compose $ positions)
-    -- liftIO $ print positions
     -- liftIO . (traverse_ . traverse_) (T.putStrLn . printOption) $ positions
     pos <- maybe (fail "No possible states!") return positions
     let startGrid = generateGrid pos rows cols
     let minTracker = initMinTracker startGrid
     runWFC minTracker $ do
-        result <- if debug then debugStepper startGrid
-                        else solve startGrid
-        liftIO . T.putStrLn . gridToText $ flatten result
+        debugStepper debugHandle startGrid
+        return ()
+        -- liftIO . T.putStrLn . gridToText $ flatten result
 
     -- traverse_ (liftIO . putStrLn . printOption) positions
     -- result <- solve startGrid

@@ -1,3 +1,5 @@
 .stack-work/
 wave-function-collapse.cabal
 *~
+/*.prof
+/*.html

@@ -57,6 +57,7 @@ executables:
     - -with-rtsopts=-p
     dependencies:
     - wave-function-collapse
+    - ansi-terminal
 
 tests:
   wave-function-collapse-test:
