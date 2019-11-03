@@ -38,6 +38,8 @@ dependencies:
 - random-shuffle
 - nonempty-containers
 - psqueues
+- unordered-containers
+- hashable
 
 library:
   source-dirs: src
@@ -54,7 +56,6 @@ executables:
     - -threaded
     - -rtsopts
     - -with-rtsopts=-N
-    - -with-rtsopts=-p
     dependencies:
     - wave-function-collapse
     - ansi-terminal

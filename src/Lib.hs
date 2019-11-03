@@ -10,9 +10,7 @@
 module Lib where
 
 import qualified Data.Text as T
-import qualified Data.Text.IO as T
 import Data.Graph.Inductive hiding ((&))
-import qualified Text.RawString.QQ as R
 import GraphLens
 import Control.Lens hiding (Context)
 import Grid
@@ -27,89 +25,9 @@ import qualified Data.Set.NonEmpty as NE
 import Text.Printf
 import Data.Functor.Compose
 import qualified MinTracker as MT
-import Data.Maybe
-
-testText :: T.Text
-testText = [R.r|one
-a longer thing
-there
-|]
-
-simpleText :: T.Text
-simpleText = T.filter (/= ' ')
-  [R.r|=%=%=%=%=%
-       %=%=%=%=%=
-       $*$$=*=$$$
-       %=%=%=%=%=
-       =%=%=%=%=%|]
-
-treeText :: T.Text
-treeText = T.filter (/= ' ')
-  [R.r|..|..|
-       +-++-+
-       |..|.|
-       +--|-+
-       +--+.||]
-
-exText :: T.Text
-exText = T.filter (/= ' ')
-  [R.r|x...x...x...
-       .\./.\./.\./
-       ..x...x...x.
-       ./.\./.../.\
-       x...x...x...
-       .\./.\./.\./|]
-
-vineText :: T.Text
-vineText = T.unlines . drop 1 . T.lines $
-  [R.r|
-   __    __        __          __    __        __          __    __
-  (//    \\)    __(//   __    (//    \\)    __(//   __    (//    \\)
-  /"      / __  \\)"    \\)_  /"      / __  \\)"    \\)_  /"      / __
-'|-..__..-''\_''-.\__..-''  '|-..__..-''\_''-.\__..-''  '|-..__..-''\
-(\\  \_    _(\\      _/     (\\  \_    _(\\      _/     (\\  \_    //)
- ""  (\\  //)""     //)      ""  (\\  //)""     //)      ""  (\\   ""
-      ""  ""        ""            ""  ""        ""            ""|]
-
-tiledText :: T.Text
-tiledText = T.unlines . drop 1 . T.lines $
-  [R.r|
- _\__/__/__\__\__\__\__/__\__\__/__/__\__\_
- \  /  /  \  \  \  \  /  \  \  /  /  \  \
- /  \  \  /   ) /   )(    ) /  \  \  /   )
-_\__/__/__\__/__\__/__\__/__\__/__/__\__/_
- \  /  /  \  /  \  /  \  /  \  /  /  \  /
- / (  (    ) \  /  \  / (   / (  (    ) \
-_\__\__\__/__/__\__/__\__\__\__\__\__/__/_
- \  \  \  /  /  \  /  \  \  \  \  \  /  /
- /   ) /  \ (   / (   /   ) /   ) /  \ (
-_\__/__\__/__\__\__\__\__/__\__/__\__/__\_
- \  /  \  /  \  \  \  \  /  \  /  \  /  \
- /  \   )(    )  )  )  )(   /  \   )(    )
-_\__/__/__\__/__/__/__/__\__\__/__/__\__/_
- \  /  /  \  /  /  /  /  \  \  /  /  \  /
- /  \ (   / (  (  (  (   /  /  \ (   / (
-_\__/__\__\__\__\__\__\__\__\__/__\__\__\_
- \  /  \  \  \  \  \  \  \  \  /  \  \  \
- / (    )  ) /   )  )  ) /  / (    )  ) /
-_\__\__/__/__\__/__/__/__\__\__\__/__/__\_
- \  \  /  /  \  /  /  /  \  \  \  /  /  \
- /   )(  (    ) \ (  (   /  /   )(  (    )
-_\__/__\__\__/__/__\__\__\__\__/__\__\__/_
- \  /  \  \  /  /  \  \  \  \  /  \  \  /
-  )(    ) /  \  \  /   ) /   )(    ) /  \
-_/__\__/__\__/__/__\__/__\__/__\__/__\__/_
- /  \  /  \  /  /  \  /  \  /  \  /  \  /|]
-
 
 generateGrid :: p -> Row -> Col -> Grid p
 generateGrid positions rows cols = mkDiagGraph rows cols $> positions
-
--- minWavinessNode :: Grid (SuperPos p) -> WFC (Maybe Node)
--- minWavinessNode grid = do
---     MT.getMinNode
-  -- where
-  --   minNode = fst <$> minimumByOf (graph . to labNodes . folded . filtered (has $ _2 . _Unknown)) (compare `on` entropyOf . snd) grid
 
 entropyOf :: (SuperPos p) -> Maybe Int
 entropyOf (Unknown s) = Just $ NE.size s
@@ -126,7 +44,6 @@ step grid = MT.popMinNode >>= \case
     Just n -> do
         grid' <- collapse gridFilter n grid
         return $ Right grid'
-
 
 collapse :: forall p. (p -> Dir -> (p -> Bool)) -> Node -> Grid (SuperPos p) -> WFC (Grid (SuperPos p))
 collapse nFilter n grid = do
@@ -149,9 +66,6 @@ collapse nFilter n grid = do
 
     propTargets :: [(Dir, Node)]
     propTargets = grid ^.. graph . ctxAt n . ctxSuc . traversed
-
-simplePos :: Maybe (SuperPos Position)
-simplePos = collectSuperPositions $ gridFromText simpleText
 
 showSuper :: HasCallStack => Grid (SuperPos (Option Char)) -> Grid Char
 showSuper = fmap force
@@ -189,8 +103,6 @@ showSuperPos :: SuperPos (Option Char) -> Char
 showSuperPos (Observed o) = collapseOption o
 showSuperPos (Unknown s) = collapseOption $ NE.findMin s
 
-type Debug = Bool
-
 initMinTracker :: forall p. Grid (SuperPos p) -> MT.MinTracker
 initMinTracker grid = MT.fromList (allEntropies ^.. traversed . below _Just)
     where
@@ -208,11 +120,6 @@ run debugHandle rows cols txt = do
     let startGrid = generateGrid pos rows cols
     let minTracker = initMinTracker startGrid
     runWFC minTracker $ do
-        debugStepper debugHandle startGrid
+        _ <- debugStepper debugHandle startGrid
         return ()
-        -- liftIO . T.putStrLn . gridToText $ flatten result
-
-    -- traverse_ (liftIO . putStrLn . printOption) positions
-    -- result <- solve startGrid
-    -- liftIO . T.putStrLn . gridToText $ flatten result
     return ()
