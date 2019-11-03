@@ -4,22 +4,24 @@
 {-# LANGUAGE DeriveTraversable #-}
 {-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE TemplateHaskell #-}
+{-# LANGUAGE DeriveGeneric #-}
+{-# LANGUAGE DeriveAnyClass #-}
+{-# LANGUAGE DerivingStrategies #-}
 module Grid where
 
 import qualified Data.Text as T
-import Data.Graph.Inductive as G hiding ((&))
-import qualified Data.Graph.Inductive.NodeMap as NM
-import Control.Monad
 import qualified Data.Map as M
 import qualified Data.Set as S
-import Data.Foldable
 import Data.Functor.Rep as R
 import Data.Distributive
-import qualified Data.List as L
-import Data.Maybe
 import Control.Lens hiding (Context)
 import qualified Data.Set.NonEmpty as NE
+import qualified Graph as G
 import WFC
+import qualified Data.HashMap.Strict as HM
+import Data.Hashable
+import GHC.Generics (Generic)
+import Control.Arrow ((&&&))
 
 
 type Coord = (Row, Col)
@@ -36,11 +38,11 @@ data Dir
     | W
     | NW
     | C
-    deriving (Eq, Show, Ord)
+    deriving (Eq, Show, Ord, Generic)
+    deriving anyclass Hashable
 
 data Grid a =
-    Grid { _graph   :: Gr a Dir
-         , _nodeMap :: (NodeMap Coord)
+    Grid { _graph   :: G.Graph Coord Dir a
          , _rows    :: Row
          , _cols    :: Col
          }
@@ -49,7 +51,7 @@ data Grid a =
 makeLenses ''Grid
 
 instance Functor Grid where
-  fmap f = graph %~ nmap f
+  fmap f = graph . mapped %~ f
 
 
 instance Distributive Option where
@@ -102,50 +104,67 @@ rectangularize txt = (length lines', maxLength, padded)
 
 mkDiagGraph :: Row -> Col -> Grid Coord
 mkDiagGraph rows cols =
-    Grid { _graph   = gr
-         , _nodeMap = nodemap
+    Grid { _graph   = G.newGraph vertices' edges'
          , _rows    = rows
          , _cols    = cols
          }
   where
-    (_, (nodemap, gr)) = NM.run G.empty $ do
-           let slots = [(r, c) | r <- [0..rows - 1], c <- [0..cols - 1]]
-           for_ slots insMapNodeM
-           for_ slots $ \(r, c) -> do
-               let addE = addEdge (r, c)
-               addE NW (r - 1, c - 1)
-               addE N  (r - 1, c    )
-               addE NE (r - 1, c + 1)
-               addE E  (r    , c + 1)
-               addE SE (r + 1, c + 1)
-               addE S  (r + 1, c    )
-               addE SW (r + 1, c - 1)
-               addE W  (r    , c - 1)
+    vertices' :: [(Coord, Coord)]
+    vertices' = fmap (id &&& id) slots
+    slots :: [Coord]
+    slots = [(r, c) | r <- [0..rows - 1], c <- [0..cols - 1]]
+    edges' :: [(Coord, Coord, Dir)]
+    edges' = do
+        (r, c) <- slots
+        (to', e) <- [ ((r - 1, c - 1), NW)
+                    , ((r - 1, c    ), N)
+                    , ((r - 1, c + 1), NE)
+                    , ((r    , c + 1), E)
+                    , ((r + 1, c + 1), SE)
+                    , ((r + 1, c    ), S)
+                    , ((r + 1, c - 1), SW)
+                    , ((r    , c - 1), W)
+                    ]
+        return ((r, c), to', e)
 
-mkOrthoGraph :: Row -> Col -> Grid Coord
-mkOrthoGraph rows cols =
-    Grid { _graph   = gr
-         , _nodeMap = nodemap
-         , _rows    = rows
-         , _cols    = cols
-         }
-  where
-    (_, (nodemap, gr)) = NM.run G.empty $ do
-           let slots = [(r, c) | r <- [0..rows - 1], c <- [0..cols - 1]]
-           for_ slots insMapNodeM
-           for_ slots $ \(r, c) -> do
-               let addE = addEdge (r, c)
-               addE N  (r - 1, c    )
-               addE E  (r    , c + 1)
-               addE S  (r + 1, c    )
-               addE W  (r    , c - 1)
+-- mkDiagGraph :: Row -> Col -> Grid Coord
+-- mkDiagGraph rows cols =
+--     Grid { _graph   = gr
+--          , _rows    = rows
+--          , _cols    = cols
+--          }
+--   where
+--     (_, (nodemap, gr)) = NM.run G.empty $ do
+--            let slots = [(r, c) | r <- [0..rows - 1], c <- [0..cols - 1]]
+--            for_ slots insMapNodeM
+--            for_ slots $ \(r, c) -> do
+--                let addE = addEdge (r, c)
+--                addE NW (r - 1, c - 1)
+--                addE N  (r - 1, c    )
+--                addE NE (r - 1, c + 1)
+--                addE E  (r    , c + 1)
+--                addE SE (r + 1, c + 1)
+--                addE S  (r + 1, c    )
+--                addE SW (r + 1, c - 1)
+--                addE W  (r    , c - 1)
 
-
-addEdge :: Ord a => a -> e -> a -> NodeMapM a e Gr ()
-addEdge current e other = do
-    mkEdgeM (current, other, e) >>= \case
-      Nothing -> return ()
-      Just _ -> void $ insMapEdgeM (current, other, e)
+-- mkOrthoGraph :: Row -> Col -> Grid Coord
+-- mkOrthoGraph rows cols =
+--     Grid { _graph   = gr
+--          , _nodeMap = nodemap
+--          , _rows    = rows
+--          , _cols    = cols
+--          }
+--   where
+--     (_, (nodemap, gr)) = NM.run G.empty $ do
+--            let slots = [(r, c) | r <- [0..rows - 1], c <- [0..cols - 1]]
+--            for_ slots insMapNodeM
+--            for_ slots $ \(r, c) -> do
+--                let addE = addEdge (r, c)
+--                addE N  (r - 1, c    )
+--                addE E  (r    , c + 1)
+--                addE S  (r + 1, c    )
+--                addE W  (r    , c - 1)
 
 
 labelChars :: [T.Text] -> M.Map Coord Char
@@ -160,12 +179,12 @@ labelChars rows = M.fromList $ concat labeled
       reassoc row (col, c) = ((row, col), c)
 
 
-gridToText :: Grid Char -> T.Text
-gridToText grid = T.pack . unlines $ do
-    r <- [0..(grid ^. rows) - 1]
-    return $ do
-        c <- [0..(grid ^. cols) - 1]
-        return . fromJust $ lab (grid ^. graph) (fst $ mkNode_ (grid ^. nodeMap) (r, c))
+-- gridToText :: Grid Char -> T.Text
+-- gridToText grid = T.pack . unlines $ do
+--     r <- [0..(grid ^. rows) - 1]
+--     return $ do
+--         c <- [0..(grid ^. cols) - 1]
+--         return . fromJust $ lab (grid ^. graph) (fst $ mkNode_ (grid ^. nodeMap) (r, c))
 
 
 printOption :: Option Char ->  T.Text
@@ -226,18 +245,12 @@ addMirrored x = x
 
 collectSuperPositions :: Grid Char -> Maybe (SuperPos Position)
 collectSuperPositions grid
-  = fmap Unknown . NE.nonEmptySet . S.fromList . catMaybes $ toPosition <$> allNodes
-    where
-      gr = grid ^. graph
-      allNodes = nodes gr
-      toPosition :: Node -> Maybe Position
-      toPosition n =
-          let linked = context gr n
-           -- TODO
-           -- in Just . fmap (fromMaybe ' ') $ tabulate (findEdge linked)
-           in sequenceA $ tabulate (findEdge linked)
-      findEdge :: Context Char Dir -> Dir -> Maybe Char
-      findEdge ctx C = Just $ lab' ctx
-      findEdge ctx dir = do
-          (n, _) <- L.find ((== dir) . snd) $ lsuc' ctx
-          lab gr n
+  = Unknown <$> NE.nonEmptySet allEdges
+  where
+    allEdges :: S.Set Position
+    allEdges =
+        grid ^. graph . G.edges . traversed . folding buildOption . to S.singleton
+    buildOption :: HM.HashMap Dir G.Vertex -> Maybe Position
+    buildOption m = do
+        opts <- sequenceA $ tabulate (\d -> HM.lookup d m)
+        traverse (\n -> grid ^? graph . G.valueAt n ) ( opts)
