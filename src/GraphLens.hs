@@ -14,7 +14,7 @@ ctxAt :: Node -> Traversal' (Gr a e) (Context a e)
 ctxAt n f gr =
     case match n gr of
         (Just ctx, gr') -> liftA2 (&) (f ctx) (pure gr')
-        (Nothing, gr') -> pure gr
+        (Nothing, gr') -> pure gr'
 
 ctxLabel :: Lens' (Context a e) a
 ctxLabel = _3
