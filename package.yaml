@@ -37,6 +37,7 @@ dependencies:
 - MonadRandom
 - random-shuffle
 - nonempty-containers
+- psqueues
 
 library:
   source-dirs: src
@@ -53,6 +54,7 @@ executables:
     - -threaded
     - -rtsopts
     - -with-rtsopts=-N
+    - -with-rtsopts=-p
     dependencies:
     - wave-function-collapse
 

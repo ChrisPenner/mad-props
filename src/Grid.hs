@@ -19,9 +19,7 @@ import qualified Data.List as L
 import Data.Maybe
 import Control.Lens hiding (Context)
 import qualified Data.Set.NonEmpty as NE
-import Backtrack
-import Control.Applicative as A
-import Control.Monad.Trans
+import WFC
 
 
 type Coord = (Row, Col)
@@ -199,11 +197,11 @@ data SuperPos a =
     Observed a | Unknown (NE.NESet a)
   deriving (Show, Foldable)
 
-superPosFilter :: (s -> Bool) -> SuperPos s -> Backtrack (SuperPos s)
+superPosFilter :: (s -> Bool) -> SuperPos s -> WFC (SuperPos s)
 superPosFilter p o@(Observed a) = if (p a) then return o
-                                           else lift A.empty
+                                           else backtrack
 superPosFilter p (Unknown s) =
-    maybe (lift A.empty) (pure . Unknown) . NE.nonEmptySet $ NE.filter p s
+    maybe backtrack (pure . Unknown) . NE.nonEmptySet $ NE.filter p s
 
 makePrisms ''SuperPos
 
