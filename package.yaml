@@ -23,13 +23,11 @@ dependencies:
 - base >= 4.7 && < 5
 - lens
 - text
-- vector
 - raw-strings-qq
 - containers
 - mtl
 - adjunctions
 - distributive
-- hspec
 - transformers
 - MonadRandom
 - random-shuffle
@@ -69,3 +67,4 @@ tests:
     - -with-rtsopts=-N
     dependencies:
     - wave-function-collapse
+    - hspec
