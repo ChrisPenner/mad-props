@@ -9,10 +9,7 @@ import System.Console.ANSI
 import Patterns
 import WFC.Graph
 import WFC.Types
-import Data.Functor.Compose
 import Text.Printf
-import Control.Monad.IO.Class
-import WFC
 import Control.Lens
 import Data.Set.NonEmpty as NE
 import Control.Applicative
@@ -41,24 +38,30 @@ showSuperPosSize (Unknown s)
 
 main :: IO ()
 main = do
+    run 20 20 tiledText
+
+runDebug :: Int -> Int -> T.Text -> IO ()
+runDebug rows cols txt = do
     clearScreen
     hideCursor
-    run 20 20 tiledText
+    let srcGrid = gridFromText txt
+    let mPositions = collectSuperPositions srcGrid
+    pos <- maybe (fail "No possible states!") return mPositions
+    -- debugPositions pos
+    let startGrid = generateGrid pos rows cols
+    _ <- debugStepper (printStep rows cols) gridFilter (startGrid ^. graph)
     showCursor
+    return ()
 
 run :: Int -> Int -> T.Text -> IO ()
 run rows cols txt = do
     let srcGrid = gridFromText txt
     let mPositions = collectSuperPositions srcGrid
     pos <- maybe (fail "No possible states!") return mPositions
-    debugPositions pos
+    -- debugPositions pos
     let startGrid = generateGrid pos rows cols
-    let minTracker = initMinTracker (startGrid ^. graph)
-    runWFC minTracker $ do
-        _result <- debugStepper (printStep rows cols) gridFilter (startGrid ^. graph)
-        liftIO . T.putStrLn . gridToText . (\g -> Grid g rows cols) . flatten $ _result
-        return ()
-    return ()
+    result <- solve gridFilter (startGrid ^. graph)
+    T.putStrLn . gridToText . (\g -> Grid g rows cols) . flatten $ result
 
 debugPositions :: SuperPos (Option Char)  -> IO ()
 debugPositions positions = do

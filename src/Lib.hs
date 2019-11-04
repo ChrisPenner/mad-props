@@ -7,15 +7,12 @@
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE DeriveFunctor #-}
 {-# LANGUAGE DeriveTraversable #-}
-module Lib where
+module Lib (solve, debugStepper) where
 
 import qualified WFC.Graph as G
-import qualified Data.Text as T
 import Control.Lens hiding (Context)
 import Control.Monad
-import Data.Monoid
 import Data.Hashable
-import Control.Applicative
 import WFC
 import WFC.Types
 import Control.Monad.IO.Class
@@ -26,12 +23,13 @@ entropyOf :: (SuperPos p) -> Maybe Int
 entropyOf (Unknown s) = Just $ NE.size s
 entropyOf (Observed _) = Nothing
 
-solve :: (Eq p, Eq e, Hashable e) => PropFilter f e p -> G.Graph k e (SuperPos (f p)) -> WFC (G.Graph k e (f p))
-solve propFilter grid = runWFC solve'
+solve :: (Eq p, Eq e, Hashable e) => PropFilter f e p -> G.Graph k e (SuperPos (f p)) -> IO (G.Graph k e (f p))
+solve propFilter graph' = runWFC mt (solve' graph')
   where
-    solve' = step propFilter grid >>= \case
+    solve' gr = step propFilter gr >>= \case
         Left done -> return done
-        Right grid' -> solve propFilter grid'
+        Right gr' -> solve' gr'
+    mt = initMinTracker graph'
 
 step :: (Eq p, Eq e, Hashable e)
      => PropFilter f e p
@@ -78,12 +76,15 @@ debugStepper :: (Eq p, Eq e, Hashable e)
              => (G.Graph k e (SuperPos (f p)) -> IO ())
              -> PropFilter f e p
              -> G.Graph k e (SuperPos (f p))
-             -> WFC (G.Graph k e (f p))
-debugStepper stepHandler propFilter gr = do
-    liftIO $ stepHandler gr
-    step propFilter gr >>= \case
-        Left done -> return done
-        Right gr' -> debugStepper stepHandler propFilter gr'
+             -> IO (G.Graph k e (f p))
+debugStepper stepHandler propFilter gr = runWFC mt (debugStepper' gr)
+  where
+    mt = initMinTracker gr
+    debugStepper' gr' = do
+      liftIO $ stepHandler gr'
+      step propFilter gr' >>= \case
+          Left done -> return done
+          Right gr'' -> debugStepper' gr''
 
 initMinTracker :: forall p k e. G.Graph k e (SuperPos p) -> MT.MinTracker
 initMinTracker graph' = MT.fromList (allEntropies ^.. traversed . below _Just)

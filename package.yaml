@@ -37,6 +37,7 @@ dependencies:
 - psqueues
 - unordered-containers
 - hashable
+- logict
 
 library:
   source-dirs: src
