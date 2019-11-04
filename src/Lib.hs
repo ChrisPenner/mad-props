@@ -9,9 +9,9 @@
 {-# LANGUAGE DeriveTraversable #-}
 module Lib where
 
+import qualified Graph as G
 import qualified Data.Text as T
-import Data.Graph.Inductive hiding ((&))
-import GraphLens
+import qualified Data.Text.IO as T
 import Control.Lens hiding (Context)
 import Grid
 import Control.Monad
@@ -33,9 +33,9 @@ entropyOf :: (SuperPos p) -> Maybe Int
 entropyOf (Unknown s) = Just $ NE.size s
 entropyOf (Observed _) = Nothing
 
-solve :: Eq p => Grid (SuperPos (Option p)) -> WFC (Grid (Option p))
+solve :: Eq p => Grid (SuperPos (Option p)) -> WFC (Grid p)
 solve grid = step grid >>= \case
-    Left done -> return done
+    Left done -> return $ flatten done
     Right grid' -> solve grid'
 
 step :: Eq p => Grid (SuperPos (Option p)) -> WFC (Either (Grid (Option p)) (Grid (SuperPos (Option p))))
@@ -45,17 +45,17 @@ step grid = MT.popMinNode >>= \case
         grid' <- collapse gridFilter n grid
         return $ Right grid'
 
-collapse :: forall p. (p -> Dir -> (p -> Bool)) -> Node -> Grid (SuperPos p) -> WFC (Grid (SuperPos p))
+collapse :: forall p. (p -> Dir -> (p -> Bool)) -> G.Vertex -> Grid (SuperPos p) -> WFC (Grid (SuperPos p))
 collapse nFilter n grid = do
     -- choice <- rselectWithTrigger (const $ putStrLn "backtrack") $ grid ^.. graph . ctxAt n . ctxLabel . folded
-    choice <- rselect $ grid ^.. graph . to (lab ?? n)  . _Just . folded
-    let picked = grid & graph . ctxAt n . ctxLabel .~ Observed choice
+    choice <- rselect $ grid ^.. graph . G.valueAt n . folded
+    let picked = grid & graph . G.valueAt n .~ Observed choice
     result <- foldM (propagate choice) picked propTargets
     return result
   where
-    propagate :: p -> Grid (SuperPos p) -> (Dir, Node) -> WFC (Grid (SuperPos p))
+    propagate :: p -> Grid (SuperPos p) -> (Dir, G.Vertex) -> WFC (Grid (SuperPos p))
     propagate choice gr (d, n) =
-        gr & graph . ctxAt n . ctxLabel . filtered (has _Unknown) %%~ prop n choice d
+        gr & graph . G.valueAt n . filtered (has _Unknown) %%~ prop n choice d
     prop n choice d s = do
         new <- superPosFilter (nFilter choice d) s
         case entropyOf new of
@@ -64,8 +64,8 @@ collapse nFilter n grid = do
               MT.setNodeEntropy n ent
               return new
 
-    propTargets :: [(Dir, Node)]
-    propTargets = grid ^.. graph . ctxAt n . ctxSuc . traversed
+    propTargets :: [(Dir, G.Vertex)]
+    propTargets = grid ^.. graph . G.edgesFrom n
 
 showSuper :: HasCallStack => Grid (SuperPos (Option Char)) -> Grid Char
 showSuper = fmap force
@@ -75,7 +75,7 @@ showSuper = fmap force
                       | otherwise = ' '
     force (Observed c) = collapseOption c
 
-flatten :: HasCallStack => Grid (Option Char) -> Grid Char
+flatten :: HasCallStack => Grid (Option p) -> Grid p
 flatten = fmap collapseOption
 
 laminate :: [T.Text] -> T.Text
@@ -107,12 +107,13 @@ initMinTracker :: forall p. Grid (SuperPos p) -> MT.MinTracker
 initMinTracker grid = MT.fromList (allEntropies ^.. traversed . below _Just)
     where
       allEntropies = allNodes & traversed . _2 %~ entropyOf
-      allNodes :: [LNode (SuperPos p)]
-      allNodes =  grid ^.. graph . folding labNodes
+      allNodes :: [(G.Vertex, SuperPos p)]
+      allNodes =  grid ^@.. graph . itraversed
 
 run :: Maybe (Grid (SuperPos (Option Char)) -> IO ()) -> Int -> Int -> T.Text -> IO ()
 run debugHandle rows cols txt = do
     let srcGrid = gridFromText txt
+    -- print srcGrid
     let positions = collectSuperPositions srcGrid
     liftIO $ printf "num positions: %d\n" (length . Compose $ positions)
     -- liftIO . (traverse_ . traverse_) (T.putStrLn . printOption) $ positions
@@ -120,6 +121,7 @@ run debugHandle rows cols txt = do
     let startGrid = generateGrid pos rows cols
     let minTracker = initMinTracker startGrid
     runWFC minTracker $ do
-        _ <- debugStepper debugHandle startGrid
+        _result <- debugStepper debugHandle startGrid
+        liftIO . T.putStrLn . gridToText . flatten $ _result
         return ()
     return ()

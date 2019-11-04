@@ -5,6 +5,7 @@
 {-# LANGUAGE DeriveFunctor #-}
 {-# LANGUAGE DeriveFoldable #-}
 {-# LANGUAGE DeriveTraversable #-}
+{-# LANGUAGE MultiParamTypeClasses #-}
 module Graph where
 
 import qualified Data.IntMap as IM
@@ -24,6 +25,11 @@ data Graph k e a =
 
 makeLenses ''Graph
 
+instance FunctorWithIndex Int (Graph k e) where
+instance FoldableWithIndex Int (Graph k e) where
+instance TraversableWithIndex Int (Graph k e) where
+    itraversed = values . itraversed
+
 newGraph :: forall k e a. (Eq k, Hashable k, Hashable e, Eq e) => [(k, a)] -> [(k, k, e)] -> Graph k e a
 newGraph vertexKeys edgeList = Graph vs es ls
   where
@@ -33,7 +39,7 @@ newGraph vertexKeys edgeList = Graph vs es ls
     es = IM.unionsWith HM.union $ fmap toEdge edgeList
     toEdge :: (k, k, e) -> IM.IntMap (HM.HashMap e Vertex)
     toEdge (HM.lookup ?? ls -> Just from', HM.lookup ?? ls -> Just to', e) = IM.singleton from' (HM.singleton e to')
-    toEdge _ = error "node found in edge list which is missing in vertex list"
+    toEdge _ = mempty
     ls :: HM.HashMap k Int
     ls = HM.fromList (zip (fst <$> vertexKeys) [0..])
 
@@ -51,3 +57,11 @@ edgesFrom n = edges . ix n . hmAsList . traversed
 
 vertexAt :: (Eq k, Hashable k) => k -> Fold (Graph k e a) Vertex
 vertexAt k = labels . folding (HM.lookup k)
+
+valueAtKey :: (Eq k, Hashable k) => k -> Traversal' (Graph k e a) a
+valueAtKey k f graph' =
+    case vertex of
+        Nothing -> pure graph'
+        Just v -> graph' & valueAt v %%~ f
+    where
+      vertex = graph' ^? vertexAt k

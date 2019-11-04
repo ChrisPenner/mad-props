@@ -23,7 +23,6 @@ import Data.Hashable
 import GHC.Generics (Generic)
 import Control.Arrow ((&&&))
 
-
 type Coord = (Row, Col)
 type Row = Int
 type Col = Int
@@ -179,13 +178,12 @@ labelChars rows = M.fromList $ concat labeled
       reassoc row (col, c) = ((row, col), c)
 
 
--- gridToText :: Grid Char -> T.Text
--- gridToText grid = T.pack . unlines $ do
---     r <- [0..(grid ^. rows) - 1]
---     return $ do
---         c <- [0..(grid ^. cols) - 1]
---         return . fromJust $ lab (grid ^. graph) (fst $ mkNode_ (grid ^. nodeMap) (r, c))
-
+gridToText :: Grid Char -> T.Text
+gridToText grid = T.pack . unlines $ do
+    r <- [0..(grid ^. rows) - 1]
+    return $ do
+        c <- [0..(grid ^. cols) - 1]
+        return $ grid ^?! graph . G.valueAtKey (r, c)
 
 printOption :: Option Char ->  T.Text
 printOption o = T.pack $ unlines (fmap (R.index o) <$>
@@ -249,8 +247,11 @@ collectSuperPositions grid
   where
     allEdges :: S.Set Position
     allEdges =
-        grid ^. graph . G.edges . traversed . folding buildOption . to S.singleton
-    buildOption :: HM.HashMap Dir G.Vertex -> Maybe Position
-    buildOption m = do
-        opts <- sequenceA $ tabulate (\d -> HM.lookup d m)
+        grid ^. graph . G.edges . itraversed . withIndex . folding (uncurry buildOption) . to S.singleton
+    findEdge :: G.Vertex -> HM.HashMap Dir G.Vertex -> Dir -> Maybe G.Vertex
+    findEdge n _ C = Just n
+    findEdge _ m d = m ^? ix d
+    buildOption :: G.Vertex -> HM.HashMap Dir G.Vertex -> Maybe Position
+    buildOption n m = do
+        opts <- sequenceA $ tabulate (findEdge n m)
         traverse (\n -> grid ^? graph . G.valueAt n ) ( opts)
