@@ -3,7 +3,7 @@
 {-# LANGUAGE TemplateHaskell #-}
 module WFC.Types where
 
-import WFC
+import WFC.Backtracking
 import qualified Data.Set.NonEmpty as NE
 import Control.Lens as L
 
@@ -19,7 +19,7 @@ fromObserved :: SuperPos a -> a
 fromObserved (Observed a) = a
 fromObserved (Unknown _) = error "fromObserved Error!"
 
-superPosFilter :: (s -> Bool) -> SuperPos s -> WFC (SuperPos s)
+superPosFilter :: (s -> Bool) -> SuperPos s -> Backtrack (SuperPos s)
 superPosFilter _ o@(Observed{}) = return o
 superPosFilter p (Unknown s) =
     maybe backtrack (pure . Unknown) . NE.nonEmptySet $ NE.filter p s

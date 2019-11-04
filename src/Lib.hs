@@ -13,7 +13,7 @@ import qualified WFC.Graph as G
 import Control.Lens hiding (Context)
 import Control.Monad
 import Data.Hashable
-import WFC
+import WFC.Backtracking
 import WFC.Types
 import Control.Monad.IO.Class
 import qualified Data.Set.NonEmpty as NE
@@ -34,7 +34,7 @@ solve propFilter graph' = runWFC mt (solve' graph')
 step :: (Eq p, Eq e, Hashable e)
      => PropFilter f e p
      -> G.Graph k e (SuperPos (f p))
-     -> WFC (Either (G.Graph k e (f p)) (G.Graph k e (SuperPos (f p))))
+     -> Backtrack (Either (G.Graph k e (f p)) (G.Graph k e (SuperPos (f p))))
 step propFilter graph' = MT.popMinNode >>= \case
     Nothing -> return $ Left (fromObserved <$> graph')
     Just n  -> do
@@ -46,7 +46,7 @@ collapse :: forall p k e.
          => (p -> e -> (p -> Bool))
          -> G.Vertex
          -> G.Graph k e (SuperPos p)
-         -> WFC (G.Graph k e (SuperPos p))
+         -> Backtrack (G.Graph k e (SuperPos p))
 collapse nFilter n graph' = do
     choice <- rselect $ graph' ^.. G.valueAt n . folded
     let picked = graph' & G.valueAt n .~ Observed choice
@@ -56,11 +56,11 @@ collapse nFilter n graph' = do
     propagate :: p
               -> G.Graph k e (SuperPos p)
               -> (e, G.Vertex)
-              -> WFC (G.Graph k e (SuperPos p))
+              -> Backtrack (G.Graph k e (SuperPos p))
     propagate choice gr (d, n) =
         gr & G.valueAt n . filtered (has _Unknown) %%~ prop n choice d
 
-    prop :: G.Vertex -> p -> e -> SuperPos p -> WFC (SuperPos p)
+    prop :: G.Vertex -> p -> e -> SuperPos p -> Backtrack (SuperPos p)
     prop n choice d s = do
         new <- superPosFilter (nFilter choice d) s
         case entropyOf new of
