@@ -6,6 +6,10 @@ This implementation works on a "Graph" rather than an image, so it scales to arb
 
 This lib is in early stages and will be changing a lot.
 
+**NOTE** everything is completely undocumented and probably tough to figure out ATM. I'll clean it up eventually :)
+
+You can see an example use-case in `./app/Main.hs`, best of luck to you :)
+
 ## Example
 
 Building a simple tiling pattern with WFC using a text grid:
