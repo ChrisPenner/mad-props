@@ -13,10 +13,11 @@ import qualified Graph as G
 import qualified Data.Text as T
 import qualified Data.Text.IO as T
 import Control.Lens hiding (Context)
+import Graph
 import Grid
 import Control.Monad
-import Data.Functor
 import Data.Monoid
+import Data.Hashable
 import Control.Applicative
 import GHC.Stack
 import WFC
@@ -26,36 +27,35 @@ import Text.Printf
 import Data.Functor.Compose
 import qualified MinTracker as MT
 
-generateGrid :: p -> Row -> Col -> Grid p
-generateGrid positions rows cols = mkDiagGraph rows cols $> positions
+type PropFilter f e a = f a -> e -> (f a -> Bool)
 
 entropyOf :: (SuperPos p) -> Maybe Int
 entropyOf (Unknown s) = Just $ NE.size s
 entropyOf (Observed _) = Nothing
 
-solve :: Eq p => Grid (SuperPos (Option p)) -> WFC (Grid p)
-solve grid = step grid >>= \case
-    Left done -> return $ flatten done
-    Right grid' -> solve grid'
+solve :: (Eq p, Eq e, Hashable e) => PropFilter f e p -> Graph k e (SuperPos (f p)) -> WFC (Graph k e (f p))
+solve propFilter grid = step propFilter grid >>= \case
+    Left done -> return done
+    Right grid' -> solve propFilter grid'
 
-step :: Eq p => Grid (SuperPos (Option p)) -> WFC (Either (Grid (Option p)) (Grid (SuperPos (Option p))))
-step grid = MT.popMinNode >>= \case
-    Nothing -> return $ Left (fromObserved <$> grid)
+step :: (Eq p, Eq e, Hashable e) => PropFilter f e p -> Graph k e (SuperPos (f p)) -> WFC (Either (Graph k e (f p)) (Graph k e (SuperPos (f p))))
+step propFilter graph' = MT.popMinNode >>= \case
+    Nothing -> return $ Left (fromObserved <$> graph')
     Just n -> do
-        grid' <- collapse gridFilter n grid
-        return $ Right grid'
+        newGraph <- collapse propFilter n graph'
+        return $ Right newGraph
 
-collapse :: forall p. (p -> Dir -> (p -> Bool)) -> G.Vertex -> Grid (SuperPos p) -> WFC (Grid (SuperPos p))
-collapse nFilter n grid = do
+collapse :: forall p k e. (Eq e, Hashable e) => (p -> e -> (p -> Bool)) -> G.Vertex -> Graph k e (SuperPos p) -> WFC (Graph k e (SuperPos p))
+collapse nFilter n graph' = do
     -- choice <- rselectWithTrigger (const $ putStrLn "backtrack") $ grid ^.. graph . ctxAt n . ctxLabel . folded
-    choice <- rselect $ grid ^.. graph . G.valueAt n . folded
-    let picked = grid & graph . G.valueAt n .~ Observed choice
+    choice <- rselect $ graph' ^.. G.valueAt n . folded
+    let picked = graph' & G.valueAt n .~ Observed choice
     result <- foldM (propagate choice) picked propTargets
     return result
   where
-    propagate :: p -> Grid (SuperPos p) -> (Dir, G.Vertex) -> WFC (Grid (SuperPos p))
+    propagate :: p -> Graph k e (SuperPos p) -> (e, G.Vertex) -> WFC (Graph k e (SuperPos p))
     propagate choice gr (d, n) =
-        gr & graph . G.valueAt n . filtered (has _Unknown) %%~ prop n choice d
+        gr & G.valueAt n . filtered (has _Unknown) %%~ prop n choice d
     prop n choice d s = do
         new <- superPosFilter (nFilter choice d) s
         case entropyOf new of
@@ -64,10 +64,10 @@ collapse nFilter n grid = do
               MT.setNodeEntropy n ent
               return new
 
-    propTargets :: [(Dir, G.Vertex)]
-    propTargets = grid ^.. graph . G.edgesFrom n
+    propTargets :: [(e, G.Vertex)]
+    propTargets = graph' ^.. G.edgesFrom n
 
-showSuper :: HasCallStack => Grid (SuperPos (Option Char)) -> Grid Char
+showSuper :: HasCallStack => Graph k e (SuperPos (Option Char)) -> Graph k e Char
 showSuper = fmap force
   where
     force s | null s = 'X'
@@ -75,7 +75,7 @@ showSuper = fmap force
                       | otherwise = ' '
     force (Observed c) = collapseOption c
 
-flatten :: HasCallStack => Grid (Option p) -> Grid p
+flatten :: HasCallStack => Graph k e (Option p) -> Graph k e p
 flatten = fmap collapseOption
 
 laminate :: [T.Text] -> T.Text
@@ -84,14 +84,14 @@ laminate txts = T.unlines pieces
     pieces =
         getZipList . getAp $ foldMap (Ap . ZipList . fmap (<> " ") . T.lines) txts
 
-debugStepper :: Maybe (Grid (SuperPos (Option Char)) -> IO ()) -> Grid (SuperPos (Option Char)) -> WFC (Grid (Option Char))
-debugStepper stepHandler gr = do
+debugStepper :: (Eq p, Eq e, Hashable e) => Maybe (Graph k e (SuperPos (f p)) -> IO ()) -> PropFilter f e p -> Graph k e (SuperPos (f p)) -> WFC (Graph k e (f p))
+debugStepper stepHandler propFilter gr = do
     liftIO $ maybe (return ()) ($ gr) stepHandler
-    step gr >>= \case
+    step propFilter gr >>= \case
         Left done -> return done
         Right gr' -> do
             -- print $ (lab (gr' ^. graph) <$> minWavinessNode gr')
-            debugStepper stepHandler gr'
+            debugStepper stepHandler propFilter gr'
 
 showSuperPosSize :: SuperPos a -> Char
 showSuperPosSize (Observed _) = '#'
@@ -103,14 +103,14 @@ showSuperPos :: SuperPos (Option Char) -> Char
 showSuperPos (Observed o) = collapseOption o
 showSuperPos (Unknown s) = collapseOption $ NE.findMin s
 
-initMinTracker :: forall p. Grid (SuperPos p) -> MT.MinTracker
-initMinTracker grid = MT.fromList (allEntropies ^.. traversed . below _Just)
+initMinTracker :: forall p k e. Graph k e (SuperPos p) -> MT.MinTracker
+initMinTracker graph' = MT.fromList (allEntropies ^.. traversed . below _Just)
     where
       allEntropies = allNodes & traversed . _2 %~ entropyOf
       allNodes :: [(G.Vertex, SuperPos p)]
-      allNodes =  grid ^@.. graph . itraversed
+      allNodes =  graph' ^@.. itraversed
 
-run :: Maybe (Grid (SuperPos (Option Char)) -> IO ()) -> Int -> Int -> T.Text -> IO ()
+run :: Maybe (Graph Coord Dir (SuperPos (Option Char)) -> IO ()) -> Int -> Int -> T.Text -> IO ()
 run debugHandle rows cols txt = do
     let srcGrid = gridFromText txt
     -- print srcGrid
@@ -119,9 +119,9 @@ run debugHandle rows cols txt = do
     -- liftIO . (traverse_ . traverse_) (T.putStrLn . printOption) $ positions
     pos <- maybe (fail "No possible states!") return positions
     let startGrid = generateGrid pos rows cols
-    let minTracker = initMinTracker startGrid
+    let minTracker = initMinTracker (startGrid ^. graph)
     runWFC minTracker $ do
-        _result <- debugStepper debugHandle startGrid
-        -- liftIO . T.putStrLn . gridToText . flatten $ _result
+        _result <- debugStepper debugHandle gridFilter (startGrid ^. graph)
+        liftIO . T.putStrLn . gridToText . (\g -> Grid g rows cols) . flatten $ _result
         return ()
     return ()

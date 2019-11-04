@@ -21,6 +21,7 @@ import WFC
 import qualified Data.HashMap.Strict as HM
 import Data.Hashable
 import GHC.Generics (Generic)
+import Data.Functor
 import Control.Arrow ((&&&))
 
 type Coord = (Row, Col)
@@ -254,3 +255,7 @@ collectSuperPositions grid
     buildOption n m = do
         opts <- sequenceA $ tabulate (findEdge n m)
         traverse (\n -> grid ^? graph . G.valueAt n ) ( opts)
+
+generateGrid :: p -> Row -> Col -> Grid p
+generateGrid positions rows cols = mkDiagGraph rows cols $> positions
+
