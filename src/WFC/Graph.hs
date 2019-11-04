@@ -7,7 +7,20 @@
 {-# LANGUAGE DeriveTraversable #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 
-module Graph where
+module WFC.Graph
+    ( Graph
+    , newGraph
+    , valueAt
+    , hmAsList
+    , imAsList
+    , edgesFrom
+    , vertexAt
+    , valueAtKey
+    , edges
+    , values
+    , labels
+    , Vertex
+    ) where
 
 import qualified Data.IntMap.Strict as IM
 import qualified Data.HashMap.Strict as HM

@@ -7,7 +7,7 @@
 {-# LANGUAGE DeriveGeneric #-}
 {-# LANGUAGE DeriveAnyClass #-}
 {-# LANGUAGE DerivingStrategies #-}
-module Grid where
+module WFC.Grid where
 
 import qualified Data.Text as T
 import qualified Data.Map as M
@@ -16,13 +16,13 @@ import Data.Functor.Rep as R
 import Data.Distributive
 import Control.Lens hiding (Context)
 import qualified Data.Set.NonEmpty as NE
-import qualified Graph as G
-import WFC
+import qualified WFC.Graph as G
 import qualified Data.HashMap.Strict as HM
 import Data.Hashable
 import GHC.Generics (Generic)
 import Data.Functor
 import Control.Arrow ((&&&))
+import WFC.Types
 
 type Coord = (Row, Col)
 type Row = Int
@@ -211,20 +211,6 @@ flipDir W = E
 flipDir C = C
 
 type Position = Option Char
-data SuperPos a =
-    Observed a | Unknown (NE.NESet a)
-  deriving (Show, Foldable)
-
-superPosFilter :: (s -> Bool) -> SuperPos s -> WFC (SuperPos s)
-superPosFilter _ o@(Observed{}) = return o
-superPosFilter p (Unknown s) =
-    maybe backtrack (pure . Unknown) . NE.nonEmptySet $ NE.filter p s
-
-makePrisms ''SuperPos
-
-fromObserved :: SuperPos a -> a
-fromObserved (Observed a) = a
-fromObserved (Unknown _) = error "fromObserved Error!"
 
 collapseOption :: Option a -> a
 collapseOption = flip R.index C
@@ -258,4 +244,20 @@ collectSuperPositions grid
 
 generateGrid :: p -> Row -> Col -> Grid p
 generateGrid positions rows cols = mkDiagGraph rows cols $> positions
+
+
+showSuper :: G.Graph k e (SuperPos (Option Char)) -> G.Graph k e Char
+showSuper = fmap force
+  where
+    force s | null s = 'X'
+    force (Unknown x) | length x == 1 = collapseOption $ NE.findMin x
+                      | otherwise = ' '
+    force (Observed c) = collapseOption c
+
+flatten :: G.Graph k e (Option p) -> G.Graph k e p
+flatten = fmap collapseOption
+
+showSuperPos :: SuperPos (Option Char) -> Char
+showSuperPos (Observed o) = collapseOption o
+showSuperPos (Unknown s) = collapseOption $ NE.findMin s
 
