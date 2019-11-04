@@ -1,14 +1,14 @@
 {-# LANGUAGE OverloadedStrings #-}
 module Main where
 
-import Lib
+import WFC
 import WFC.Grid
+import WFC.Graph
+import WFC.Types
 import qualified Data.Text as T
 import qualified Data.Text.IO as T
 import System.Console.ANSI
 import Patterns
-import WFC.Graph
-import WFC.Types
 import Text.Printf
 import Control.Lens
 import Data.Set.NonEmpty as NE

@@ -8,7 +8,7 @@ import Control.Applicative
 import Data.Foldable
 import System.Random.Shuffle
 import Control.Monad.State
-import qualified MinTracker as MT
+import qualified WFC.MinTracker as MT
 
 -- Note; State on the OUTSIDE means it WILL backtrack state.
 newtype Backtrack a = Backtrack (StateT MT.MinTracker (LogicT IO) a)

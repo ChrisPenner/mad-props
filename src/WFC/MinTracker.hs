@@ -1,7 +1,7 @@
 {-# LANGUAGE TemplateHaskell #-}
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE LambdaCase #-}
-module MinTracker where
+module WFC.MinTracker where
 
 import qualified Data.IntPSQ as PSQ
 import Control.Monad.State

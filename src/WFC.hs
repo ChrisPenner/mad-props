@@ -7,7 +7,7 @@
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE DeriveFunctor #-}
 {-# LANGUAGE DeriveTraversable #-}
-module Lib (solve, debugStepper) where
+module WFC (solve, debugStepper) where
 
 import qualified WFC.Graph as G
 import Control.Lens hiding (Context)
@@ -17,7 +17,7 @@ import WFC.Backtracking
 import WFC.Types
 import Control.Monad.IO.Class
 import qualified Data.Set.NonEmpty as NE
-import qualified MinTracker as MT
+import qualified WFC.MinTracker as MT
 
 entropyOf :: (SuperPos p) -> Maybe Int
 entropyOf (Unknown s) = Just $ NE.size s
