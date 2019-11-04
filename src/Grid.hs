@@ -215,8 +215,7 @@ data SuperPos a =
   deriving (Show, Foldable)
 
 superPosFilter :: (s -> Bool) -> SuperPos s -> WFC (SuperPos s)
-superPosFilter p o@(Observed a) = if (p a) then return o
-                                           else backtrack
+superPosFilter _ o@(Observed{}) = return o
 superPosFilter p (Unknown s) =
     maybe backtrack (pure . Unknown) . NE.nonEmptySet $ NE.filter p s
 

@@ -17,4 +17,6 @@ printStep gr = do
 main :: IO ()
 main = do
     clearScreen
-    run Nothing 30 30 tiledText
+    hideCursor
+    run (Just printStep) 20 20 tiledText
+    showCursor

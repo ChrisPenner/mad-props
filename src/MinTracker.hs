@@ -26,9 +26,7 @@ popMinNode = do
 
 setNodeEntropy :: MonadState MinTracker m => Node -> Int -> m ()
 setNodeEntropy nd ent = do
-    q <- use minQueue
-    case PSQ.insertView nd ent () q of
-        (_evicted, q') -> minQueue .= q'
+    minQueue %= snd . PSQ.insertView nd ent ()
 
 fromList :: [(Node, Int)] -> MinTracker
 fromList xs = MinTracker (PSQ.fromList (fmap assoc xs))

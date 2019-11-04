@@ -6,9 +6,10 @@
 {-# LANGUAGE DeriveFoldable #-}
 {-# LANGUAGE DeriveTraversable #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
+
 module Graph where
 
-import qualified Data.IntMap as IM
+import qualified Data.IntMap.Strict as IM
 import qualified Data.HashMap.Strict as HM
 import Data.Hashable
 import Control.Lens
@@ -18,9 +19,9 @@ import Data.Bifunctor
 type Vertex = Int
 
 data Graph k e a =
-    Graph { _values :: IM.IntMap a
-          , _edges  :: IM.IntMap (HM.HashMap e Vertex)
-          , _labels :: HM.HashMap k Int
+    Graph { _values :: !(IM.IntMap a)
+          , _edges  :: !(IM.IntMap (HM.HashMap e Vertex))
+          , _labels :: !(HM.HashMap k Int)
           } deriving (Functor, Foldable, Traversable, Show)
 
 makeLenses ''Graph
@@ -45,18 +46,23 @@ newGraph vertexKeys edgeList = Graph vs es ls
 
 valueAt :: Vertex -> Traversal' (Graph k e a) a
 valueAt n = values . ix n
+{-# INLINE valueAt #-}
 
 hmAsList :: (Eq k, Hashable k) => Iso' (HM.HashMap k v ) [(k, v)]
 hmAsList = iso HM.toList HM.fromList
+{-# INLINABLE hmAsList #-}
 
 imAsList :: Iso' (IM.IntMap v ) [(Vertex, v)]
 imAsList = iso IM.toList IM.fromList
+{-# INLINABLE imAsList #-}
 
 edgesFrom :: (Eq e, Hashable e) => Vertex -> Traversal' (Graph k e a) (e, Vertex)
 edgesFrom n = edges . ix n . hmAsList . traversed
+{-# INLINE edgesFrom #-}
 
 vertexAt :: (Eq k, Hashable k) => k -> Fold (Graph k e a) Vertex
 vertexAt k = labels . folding (HM.lookup k)
+{-# INLINE vertexAt #-}
 
 valueAtKey :: (Eq k, Hashable k) => k -> Traversal' (Graph k e a) a
 valueAtKey k f graph' =
@@ -65,3 +71,4 @@ valueAtKey k f graph' =
         Just v -> graph' & valueAt v %%~ f
     where
       vertex = graph' ^? vertexAt k
+{-# INLINE valueAtKey #-}

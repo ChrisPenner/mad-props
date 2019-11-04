@@ -122,6 +122,6 @@ run debugHandle rows cols txt = do
     let minTracker = initMinTracker startGrid
     runWFC minTracker $ do
         _result <- debugStepper debugHandle startGrid
-        liftIO . T.putStrLn . gridToText . flatten $ _result
+        -- liftIO . T.putStrLn . gridToText . flatten $ _result
         return ()
     return ()

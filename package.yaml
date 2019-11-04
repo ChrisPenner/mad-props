@@ -47,6 +47,7 @@ library:
 ghc-options:
   - -Wall
   - -fno-warn-name-shadowing
+  - -O2
 
 executables:
   wave-function-collapse-exe:
