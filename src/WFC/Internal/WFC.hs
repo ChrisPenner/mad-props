@@ -12,7 +12,6 @@ module WFC.Internal.WFC (solve, debugStepper) where
 import qualified WFC.Internal.Graph as G
 import Control.Lens hiding (Context)
 import WFC.Internal.Backtracking
-import WFC.Internal.Types
 import WFC.Internal.Graph
 import Control.Monad.IO.Class
 import qualified WFC.Internal.MinTracker as MT
@@ -45,6 +44,7 @@ collapse n g = do
     choicesOfQ' focused n g
 
 choicesOfQ' :: Quantum -> Vertex -> Graph s -> Backtrack (Graph s)
+choicesOfQ' (Quantum (Observed{})) _ _ = error "Can't collapse an already collapsed node!"
 choicesOfQ' (Quantum (Unknown xs :: SuperPos f a)) n g = do
     let options = toList xs
     choice <- rselect options

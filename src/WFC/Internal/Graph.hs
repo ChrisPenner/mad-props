@@ -22,6 +22,9 @@ module WFC.Internal.Graph
     , vertices
     , Vertex(..)
     , Quantum(..)
+    , SuperPos(..)
+    , _Observed
+    , _Unknown
     , DFilter
     , DChoice
     , forceDyn
@@ -38,7 +41,6 @@ import Control.Lens
 import Data.Dynamic
 import Data.Maybe
 import Data.Typeable
-import WFC.Internal.Types
 import Data.Coerce
 
 type DFilter = Dynamic
@@ -46,6 +48,12 @@ type DChoice = Dynamic
 type Vertex' = Int
 newtype Vertex = Vertex Int
   deriving (Show, Eq, Ord)
+
+data SuperPos f a =
+    Observed a | Unknown (f a)
+  deriving (Show, Foldable)
+
+makePrisms ''SuperPos
 
 data Quantum =
     forall f a. (Foldable f, Typeable a, Typeable f) => Quantum

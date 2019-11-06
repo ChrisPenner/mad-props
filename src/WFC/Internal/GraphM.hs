@@ -11,7 +11,6 @@ import WFC.Internal.Graph
 import WFC.Internal.WFC
 import Control.Monad.State
 import Control.Lens
-import WFC.Internal.Types
 import Data.Typeable
 import Data.Dynamic
 import Data.Typeable.Lens
