@@ -12,14 +12,14 @@ import Data.Foldable
 import Control.Lens
 import Text.RawString.QQ (r)
 import qualified Data.Text as T
-import qualified Data.IntSet as IS
+import qualified Data.Set as S
 
-txtToBoard :: [T.Text] -> [[IS.IntSet]]
+txtToBoard :: [T.Text] -> [[S.Set Int]]
 txtToBoard = (fmap . fmap) inflate . fmap T.unpack
   where
-    inflate :: Char -> IS.IntSet
-    inflate '.' = IS.fromList [1..9]
-    inflate a = IS.fromList [read [a]]
+    inflate :: Char -> S.Set Int
+    inflate '.' = S.fromList [1..9]
+    inflate a = S.fromList [read [a]]
 
 boardToText :: [[Int]] -> String
 boardToText xs = unlines . fmap concat $ (fmap . fmap) show xs
@@ -87,21 +87,21 @@ puzzles = fmap toPuzzle . tail . T.lines $ [r|
     toPuzzle :: T.Text -> [T.Text]
     toPuzzle = T.chunksOf 9
 
-linkBoard :: [[PVar s (IS.IntSet)]] -> GraphM s ()
+linkBoard :: [[PVar s (S.Set Int)]] -> GraphM s ()
 linkBoard xs = do
     let coordPairs = do r <- [0..8]
                         c <- [0..8]
                         return (r, c)
     for_ (liftA2 (,) coordPairs coordPairs) $ \(a, b) ->
         when (sameRow a b || sameCol a b || sameBlock a b)
-            $ linkPair a b
+            $ disjointPair a b
   where
-    linkPair (r, c) (r', c') = link (xs ^?! ix r . ix c) (xs ^?! ix r' . ix c') disjoint
+    disjointPair (r, c) (r', c') = disjoint (xs ^?! ix r . ix c) (xs ^?! ix r' . ix c')
     sameRow (r, _) (r', _)  = r == r'
     sameCol (_, c) (_, c')  = c == c'
     sameBlock (r, c) (r', c') = (r `div` 3 == r' `div` 3) && (c `div` 3 == c' `div` 3)
 
-setup :: [[IS.IntSet]]-> GraphM s [[PVar s (IS.IntSet)]]
+setup :: [[S.Set Int]]-> GraphM s [[PVar s (S.Set Int)]]
 setup board = do
     vars <- (traverse . traverse) newPVar board
     linkBoard vars
@@ -118,9 +118,6 @@ solvePuzzle puz = do
 solveAll :: IO ()
 solveAll = do
     traverse_ solvePuzzle (take 5 puzzles)
-
-disjoint :: Int -> IS.IntSet -> IS.IntSet
-disjoint x xs = IS.delete x xs
 
 test :: IO ()
 test = do
