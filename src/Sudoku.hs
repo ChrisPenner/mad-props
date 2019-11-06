@@ -12,14 +12,14 @@ import Data.Foldable
 import Control.Lens
 import Text.RawString.QQ (r)
 import qualified Data.Text as T
-import qualified Data.Set as S
+import qualified Data.IntSet as IS
 
-txtToBoard :: [T.Text] -> [[S.Set Int]]
+txtToBoard :: [T.Text] -> [[IS.IntSet]]
 txtToBoard = (fmap . fmap) inflate . fmap T.unpack
   where
-    inflate :: Char -> S.Set Int
-    inflate '.' = S.fromList [1..9]
-    inflate a = S.fromList [read [a]]
+    inflate :: Char -> IS.IntSet
+    inflate '.' = IS.fromList [1..9]
+    inflate a = IS.fromList [read [a]]
 
 boardToText :: [[Int]] -> String
 boardToText xs = unlines . fmap concat $ (fmap . fmap) show xs
@@ -87,7 +87,7 @@ puzzles = fmap toPuzzle . tail . T.lines $ [r|
     toPuzzle :: T.Text -> [T.Text]
     toPuzzle = T.chunksOf 9
 
-linkBoard :: [[PVar s (S.Set Int)]] -> GraphM s ()
+linkBoard :: [[PVar s (IS.IntSet)]] -> GraphM s ()
 linkBoard xs = do
     let coordPairs = do r <- [0..8]
                         c <- [0..8]
@@ -101,7 +101,7 @@ linkBoard xs = do
     sameCol (_, c) (_, c')  = c == c'
     sameBlock (r, c) (r', c') = (r `div` 3 == r' `div` 3) && (c `div` 3 == c' `div` 3)
 
-setup :: [[S.Set Int]]-> GraphM s [[PVar s (S.Set Int)]]
+setup :: [[IS.IntSet]]-> GraphM s [[PVar s (IS.IntSet)]]
 setup board = do
     vars <- (traverse . traverse) newPVar board
     linkBoard vars
@@ -119,8 +119,8 @@ solveAll :: IO ()
 solveAll = do
     traverse_ solvePuzzle (take 5 puzzles)
 
-disjoint :: Int -> S.Set Int -> S.Set Int
-disjoint x xs = S.delete x xs
+disjoint :: Int -> IS.IntSet -> IS.IntSet
+disjoint x xs = IS.delete x xs
 
 test :: IO ()
 test = do
