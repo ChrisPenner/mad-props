@@ -20,8 +20,8 @@ import Data.Foldable as F
 import Control.Monad
 import Data.Dynamic
 
-solve :: G.Graph
-      -> IO (G.Graph)
+solve :: Graph s
+      -> IO (Graph s)
 solve graph' = runWFC mt (solve' graph')
   where
     solve' gr = step gr >>= \case
@@ -29,8 +29,8 @@ solve graph' = runWFC mt (solve' graph')
         Right gr' -> solve' gr'
     mt = initMinTracker graph'
 
-step :: G.Graph
-     -> Backtrack (Either (G.Graph) (G.Graph))
+step :: Graph s
+     -> Backtrack (Either (Graph s) (Graph s))
 step graph' = MT.popMinNode >>= \case
     Nothing -> return $ Left graph'
     Just n  -> do
@@ -38,22 +38,22 @@ step graph' = MT.popMinNode >>= \case
         return $ Right newGraph
 
 collapse :: G.Vertex
-         -> G.Graph
-         -> Backtrack (G.Graph)
+         -> Graph s
+         -> Backtrack (Graph s)
 collapse n g = do
     let focused = g ^?! valueAt n
     choicesOfQ' focused n g
 
-choicesOfQ' :: Quantum -> Vertex -> Graph -> Backtrack (Graph)
+choicesOfQ' :: Quantum -> Vertex -> Graph s -> Backtrack (Graph s)
 choicesOfQ' (Quantum (Unknown xs :: SuperPos f a)) n g = do
     let options = toList xs
     choice <- rselect options
     let picked = g & valueAt n %~ setChoiceQ (Observed choice :: SuperPos f a)
     propagate (n, toDyn choice) picked
 
-debugStepper :: (G.Graph -> IO ())
-             -> G.Graph
-             -> IO (G.Graph)
+debugStepper :: (Graph s -> IO ())
+             -> Graph s
+             -> IO (Graph s)
 debugStepper stepHandler gr = runWFC mt (debugStepper' gr)
   where
     mt = initMinTracker gr
@@ -63,7 +63,7 @@ debugStepper stepHandler gr = runWFC mt (debugStepper' gr)
           Left done -> return done
           Right gr'' -> debugStepper' gr''
 
-initMinTracker :: G.Graph -> MT.MinTracker
+initMinTracker :: Graph s -> MT.MinTracker
 initMinTracker graph' = MT.fromList (allEntropies ^.. traversed . below _Just)
     where
       allEntropies :: [(G.Vertex, Maybe Int)]
@@ -72,16 +72,16 @@ initMinTracker graph' = MT.fromList (allEntropies ^.. traversed . below _Just)
       allNodes =  graph' ^@.. values
 
 
-propagate :: (Vertex, DChoice) -> Graph -> Backtrack (Graph)
+propagate :: forall s. (Vertex, DChoice) -> Graph s -> Backtrack (Graph s)
 propagate (from', choice) g = foldM step' g allEdges
     where
       allEdges :: [(Vertex, DFilter)]
       allEdges = g ^.. edgesFrom from'
-      step' :: Graph -> (Vertex, DFilter) -> Backtrack (Graph)
+      step' :: Graph s -> (Vertex, DFilter) -> Backtrack (Graph s)
       step' g' e = propagateSingle choice e g'
 {-# INLINABLE propagate #-}
 
-propagateSingle :: DChoice -> (Vertex, DFilter) -> Graph -> Backtrack Graph
+propagateSingle :: DChoice -> (Vertex, DFilter) -> Graph s -> Backtrack (Graph s)
 propagateSingle v (to', dfilter) g = g & valueAt to' %%~ alterQ
   where
     alterQ :: Quantum -> Backtrack Quantum

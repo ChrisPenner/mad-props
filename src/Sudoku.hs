@@ -3,7 +3,6 @@
 {-# LANGUAGE QuasiQuotes #-}
 module Sudoku where
 
-import WFC
 import WFC.GraphM
 import Control.Applicative
 import Control.Monad
@@ -47,7 +46,7 @@ expected = [r|613542897
 984215673
 |]
 
-linkBoard :: [[PVar [] Int]] -> GraphM ()
+linkBoard :: [[PVar s [] Int]] -> GraphM s ()
 linkBoard xs = do
     let coordPairs = do r <- [0..8]
                         c <- [0..8]
@@ -61,24 +60,21 @@ linkBoard xs = do
     sameCol (_, c) (_, c')  = c == c'
     sameBlock (r, c) (r', c') = (r `div` 3 == r' `div` 3) && (c `div` 3 == c' `div` 3)
 
-setup :: GraphM ()
+setup :: GraphM s [[PVar s [] Int]]
 setup = do
     vars <- (traverse . traverse) newPVar (txtToBoard easyBoard)
     linkBoard vars
-    g <- getGraph
-    g' <- liftIO $ solve g
-    let results = fmap (flip readPVar g') <$> vars
+    return vars
+
+run :: IO ()
+run = do
+    (vars, g) <- solveGraph setup
+    let results = (fmap . fmap) (readPVar g) vars
     let sResults = boardToText results
     liftIO $ putStrLn sResults
     liftIO $ if sResults == expected
        then putStrLn "SUCCESS"
        else putStrLn "UNEXPECTED!"
-    return ()
 
 disjoint :: Int -> [Int] -> [Int]
 disjoint x = filter (/=x)
-
-run :: IO ()
-run = do
-    buildGraph setup
-    return ()

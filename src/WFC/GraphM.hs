@@ -3,43 +3,48 @@
 {-# LANGUAGE ExistentialQuantification #-}
 {-# LANGUAGE KindSignatures #-}
 {-# LANGUAGE ScopedTypeVariables #-}
-module WFC.GraphM where
+{-# LANGUAGE FlexibleContexts #-}
 
+module WFC.GraphM (GraphM, newPVar, link, solveGraph, readPVar, PVar) where
+
+import WFC
 import WFC.Graph
 import Control.Monad.State
 import Control.Lens
 import WFC.Types
 import Data.Typeable
 import Data.Dynamic
-import Unsafe.Coerce
-import Data.Maybe
-import Data.Typeable
 import Data.Typeable.Lens
 
-newtype GraphM a = GraphM {runGraphM :: StateT Graph IO a}
+newtype GraphM s a =
+    GraphM { runGraphM :: StateT (Graph s) IO a
+           }
     deriving newtype (Functor, Applicative, Monad, MonadIO)
 
-data PVar (f :: * -> *) a = PVar Vertex
+data PVar s (f :: * -> *) a = PVar Vertex
   deriving (Eq, Show, Ord)
 
-newPVar :: Typeable a => [a] -> GraphM (PVar [] a)
+newPVar :: Typeable a => [a] -> GraphM s (PVar s [] a)
 newPVar xs = GraphM $ do
     v <- vertexCount <+= 1
     vertices . at v ?= (Quantum (Unknown xs), mempty)
     return (PVar (Vertex v))
 
-link :: (Typeable a, Typeable g, Typeable b) => PVar f a -> PVar g b -> (a -> g b -> g b) -> GraphM ()
+link :: (Typeable a, Typeable g, Typeable b) => PVar s f a -> PVar s g b -> (a -> g b -> g b) -> GraphM s ()
 link (PVar from') (PVar to') f = GraphM $ do
     edgeBetween from' to' ?= toDyn f
 
-getGraph :: GraphM Graph
-getGraph = GraphM get
-
-readPVar :: Typeable a => PVar f a -> Graph -> a
-readPVar (PVar v) g = g ^?! valueAt v . to unpackQuantum
+readPVar :: Typeable a => Graph s -> PVar s f a -> a
+readPVar g (PVar v) = (g ^?! valueAt v . to unpackQuantum)
 
 unpackQuantum :: Typeable a => Quantum -> a
 unpackQuantum (Quantum o) = o ^?! _Observed . _cast
 
-buildGraph :: GraphM a -> IO Graph
-buildGraph = flip execStateT emptyGraph . runGraphM
+buildGraph :: GraphM s a -> IO (a, Graph s)
+buildGraph = flip runStateT emptyGraph . runGraphM
+
+solveGraph :: GraphM s a -> IO (a, Graph s)
+solveGraph m = do
+    (a, g) <- buildGraph m
+    g' <- solve g
+    return (a, g')
