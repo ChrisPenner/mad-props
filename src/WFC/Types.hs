@@ -3,23 +3,21 @@
 {-# LANGUAGE TemplateHaskell #-}
 module WFC.Types where
 
-import WFC.Backtracking
-import qualified Data.Set.NonEmpty as NE
 import Control.Lens as L
 
-data SuperPos a =
-    Observed a | Unknown (NE.NESet a)
+data SuperPos f a =
+    Observed a | Unknown (f a)
   deriving (Show, Foldable)
 
 makePrisms ''SuperPos
 
 type PropFilter f e a = f a -> e -> (f a -> Bool)
 
-fromObserved :: SuperPos a -> a
+fromObserved :: SuperPos f a -> a
 fromObserved (Observed a) = a
 fromObserved (Unknown _) = error "fromObserved Error!"
 
-superPosFilter :: (s -> Bool) -> SuperPos s -> Backtrack (SuperPos s)
-superPosFilter _ o@(Observed{}) = return o
-superPosFilter p (Unknown s) =
-    maybe backtrack (pure . Unknown) . NE.nonEmptySet $ NE.filter p s
+-- superPosFilter :: (s -> Bool) -> SuperPos s -> Backtrack (SuperPos s)
+-- superPosFilter _ o@(Observed{}) = return o
+-- superPosFilter p (Unknown s) =
+--     maybe backtrack (pure . Unknown) . NE.nonEmptySet $ NE.filter p s
