@@ -22,7 +22,7 @@ laminate txts = T.unlines pieces
     pieces =
         getZipList . getAp $ foldMap (Ap . ZipList . fmap (<> " ") . T.lines) txts
 
-printStep :: Int -> Int -> Graph Coord Dir (SuperPos (Option Char)) -> IO ()
+printStep :: Int -> Int -> Graph Coord (SuperPos (Option Char)) -> IO ()
 printStep row col gr = do
     let currentStep = gridToText $ Grid (showSuper gr) row col
     let waviness = gridToText $ Grid (fmap showSuperPosSize gr) row col

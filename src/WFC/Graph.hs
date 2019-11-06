@@ -35,11 +35,21 @@ import Data.Dynamic
 import Data.Maybe
 import Data.Typeable
 import Data.List
+import WFC.Types
+import Data.Foldable
 
 type Vertex = Int
 type DFilter = Dynamic
 type DSuperPos = Dynamic
 type DChoice = Dynamic
+
+data Quantum =
+    forall f a. (Foldable f, Typeable a, Typeable f) => Quantum
+        { options   :: SuperPos f a
+        }
+
+instance Show Quantum where
+  show _ = "Quantum"
 
 forceDyn :: forall a. Typeable a => Dynamic -> a
 forceDyn d =
@@ -48,11 +58,16 @@ forceDyn d =
     expected = show (typeOf (undefined :: a))
 
 data Graph k =
-    Graph { _vertices :: !(IM.IntMap (DSuperPos, IM.IntMap DFilter))
+    Graph { _vertices :: !(IM.IntMap (Quantum, IM.IntMap DFilter))
           , _labels :: !(HM.HashMap k Int)
-          }
+          , _vertexCount :: !Int
+          } deriving Show
+
 
 makeLenses ''Graph
+
+emptyGraph :: Graph ()
+emptyGraph = Graph mempty mempty 0
 
 -- instance FunctorWithIndex Int (Graph k) where
 -- instance FoldableWithIndex Int (Graph k) where
@@ -72,7 +87,7 @@ makeLenses ''Graph
 --     ls :: HM.HashMap k Int
 --     ls = HM.fromList (zip (fst <$> vertexKeys) [0..])
 
-valueAt :: Vertex -> Traversal' (Graph k) DSuperPos
+valueAt :: Vertex -> Traversal' (Graph k) Quantum
 valueAt n = vertices . ix n . _1
 {-# INLINE valueAt #-}
 
@@ -92,7 +107,7 @@ edgeBetween :: Vertex -> Vertex -> Traversal' (Graph k) DFilter
 edgeBetween from' to' = edges from' . ix to'
 {-# INLINABLE edgeBetween #-}
 
-values :: IndexedTraversal' Vertex (Graph k) DSuperPos
+values :: IndexedTraversal' Vertex (Graph k) Quantum
 values = vertices . itraversed <. _1
 {-# INLINABLE values #-}
 
@@ -104,7 +119,7 @@ vertexAt :: (Eq k, Hashable k) => k -> Fold (Graph k) Vertex
 vertexAt k = labels . folding (HM.lookup k)
 {-# INLINE vertexAt #-}
 
-valueAtKey :: (Eq k, Hashable k) => k -> Traversal' (Graph k) DSuperPos
+valueAtKey :: (Eq k, Hashable k) => k -> Traversal' (Graph k) Quantum
 valueAtKey k f graph' =
     case vertex of
         Nothing -> pure graph'
@@ -113,15 +128,12 @@ valueAtKey k f graph' =
       vertex = graph' ^? vertexAt k
 {-# INLINE valueAtKey #-}
 
-propagate :: forall k. (Vertex, DChoice) -> Graph k -> Graph k
-propagate (from', choice) g = foldl' step g allEdges
-    where
-      allEdges :: [(Vertex, DFilter)]
-      allEdges = g ^.. edgesFrom from'
-      step :: Graph k -> (Vertex, DFilter) -> Graph k
-      step g' e = propagateSingle choice e g'
-{-# INLINABLE propagate #-}
+choicesOfQ :: Quantum -> [DChoice]
+choicesOfQ (Quantum (Unknown xs)) = toDyn <$> toList xs
 
-propagateSingle :: DChoice -> (Vertex, DFilter) -> Graph k -> Graph k
-propagateSingle v (to', dfilter) g = g & valueAt to' %~ dynApp (dynApp dfilter v)
-{-# INLINABLE propagateSingle #-}
+setChoiceQ :: (Typeable f, Typeable a, Foldable f) => SuperPos f a -> Quantum -> Quantum
+setChoiceQ s (Quantum _) = Quantum s
+
+entropyOfQ :: Quantum -> Maybe Int
+entropyOfQ (Quantum (Unknown xs)) = Just $ length xs
+entropyOfQ _ = Nothing
