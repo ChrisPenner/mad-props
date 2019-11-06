@@ -34,6 +34,7 @@ module WFC.Internal.Graph
     , emptyGraph
     , edgeBetween
     , vertexCount
+    , Container(..)
     ) where
 
 import qualified Data.IntMap.Strict as IM
@@ -42,6 +43,7 @@ import Data.Dynamic
 import Data.Maybe
 import Data.Typeable
 import Data.Coerce
+import qualified Data.Set as S
 
 type DFilter = Dynamic
 type DChoice = Dynamic
@@ -56,9 +58,17 @@ data SuperPos f a =
 makePrisms ''SuperPos
 
 data Quantum =
-    forall f a. (Foldable f, Typeable a, Typeable f) => Quantum
+    forall f a. (Container f, Typeable a, Typeable f) => Quantum
         { options   :: SuperPos f a
         }
+
+class ( Typeable f) => Container f where
+  countOptions :: f a -> Int
+  choices :: f a -> [a]
+
+instance Container S.Set where
+  countOptions = S.size
+  choices = S.toList
 
 instance Show Quantum where
   show _ = "Quantum"
@@ -104,9 +114,9 @@ edgesFrom :: Vertex -> Traversal' (Graph s) (Vertex, DFilter)
 edgesFrom n = edges n . imAsList . traversed . coerced
 {-# INLINE edgesFrom #-}
 
-setChoiceQ :: (Typeable f, Typeable a, Foldable f) => SuperPos f a -> Quantum -> Quantum
+setChoiceQ :: (Typeable f, Typeable a, Container f) => SuperPos f a -> Quantum -> Quantum
 setChoiceQ s (Quantum _) = Quantum s
 
 entropyOfQ :: Quantum -> Maybe Int
-entropyOfQ (Quantum (Unknown xs)) = Just $ length xs
+entropyOfQ (Quantum (Unknown xs)) = Just $ countOptions xs
 entropyOfQ _ = Nothing

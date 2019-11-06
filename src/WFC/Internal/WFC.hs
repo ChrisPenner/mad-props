@@ -15,7 +15,6 @@ import WFC.Internal.Backtracking
 import WFC.Internal.Graph
 import Control.Monad.IO.Class
 import qualified WFC.Internal.MinTracker as MT
-import Data.Foldable as F
 import Control.Monad
 import Data.Dynamic
 
@@ -42,14 +41,16 @@ collapse :: G.Vertex
 collapse n g = do
     let focused = g ^?! valueAt n
     choicesOfQ' focused n g
+{-# INLINE collapse #-}
 
 choicesOfQ' :: Quantum -> Vertex -> Graph s -> Backtrack (Graph s)
 choicesOfQ' (Quantum (Observed{})) _ _ = error "Can't collapse an already collapsed node!"
 choicesOfQ' (Quantum (Unknown xs :: SuperPos f a)) n g = do
-    let options = toList xs
-    choice <- rselect options
+    let options = choices xs
+    choice <- select options
     let picked = g & valueAt n %~ setChoiceQ (Observed choice :: SuperPos f a)
     propagate (n, toDyn choice) picked
+{-# INLINE choicesOfQ' #-}
 
 debugStepper :: (Graph s -> IO ())
              -> Graph s
@@ -79,7 +80,7 @@ propagate (from', choice) g = foldM step' g allEdges
       allEdges = g ^.. edgesFrom from'
       step' :: Graph s -> (Vertex, DFilter) -> Backtrack (Graph s)
       step' g' e = propagateSingle choice e g'
-{-# INLINABLE propagate #-}
+{-# INLINE propagate #-}
 
 propagateSingle :: DChoice -> (Vertex, DFilter) -> Graph s -> Backtrack (Graph s)
 propagateSingle v (to', dfilter) g = g & valueAt to' %%~ alterQ
@@ -87,7 +88,7 @@ propagateSingle v (to', dfilter) g = g & valueAt to' %%~ alterQ
     alterQ :: Quantum -> Backtrack Quantum
     alterQ (Quantum (Unknown xs :: SuperPos f a)) = do
         let filteredDown = (forceDyn $ dynApp (dynApp dfilter v) (toDyn xs) :: f a)
-        MT.setNodeEntropy to' (length filteredDown)
+        MT.setNodeEntropy to' (countOptions filteredDown)
         return $ Quantum (Unknown filteredDown)
     alterQ q = return q
-{-# INLINABLE propagateSingle #-}
+{-# INLINE propagateSingle #-}

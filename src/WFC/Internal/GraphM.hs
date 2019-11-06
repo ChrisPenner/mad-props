@@ -23,7 +23,7 @@ newtype GraphM s a =
 data PVar s (f :: * -> *) a = PVar Vertex
   deriving (Eq, Show, Ord)
 
-newPVar :: Typeable a => [a] -> GraphM s (PVar s [] a)
+newPVar :: (Container f, Typeable a) => f a -> GraphM s (PVar s f a)
 newPVar xs = GraphM $ do
     v <- vertexCount <+= 1
     vertices . at v ?= (Quantum (Unknown xs), mempty)

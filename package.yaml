@@ -26,15 +26,10 @@ dependencies:
 - raw-strings-qq
 - containers
 - mtl
-- adjunctions
-- distributive
 - transformers
 - MonadRandom
 - random-shuffle
-- nonempty-containers
 - psqueues
-- unordered-containers
-- hashable
 - logict
 
 library:

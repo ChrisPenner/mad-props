@@ -1,9 +1,10 @@
 module WFC
-    ( PVar
+    ( 
+      solveGraph
     , GraphM
-    , readPVar
-    , solveGraph
+    , PVar
     , newPVar
+    , readPVar
     , link
     ) where
 
