@@ -18,15 +18,17 @@ empty = MinTracker PSQ.empty
 
 popMinNode :: MonadState MinTracker m => m (Maybe Vertex)
 popMinNode = do
-    use (minQueue . to PSQ.minView) >>= \case
+    uses minQueue PSQ.minView >>= \case
       Nothing -> return Nothing
       Just (n, _, _, q) -> do
           minQueue .= q
           return $ Just (Vertex n)
+{-# INLINE popMinNode #-}
 
 setNodeEntropy :: MonadState MinTracker m => Vertex -> Int -> m ()
 setNodeEntropy (Vertex nd) ent = do
     minQueue %= snd . PSQ.insertView nd ent ()
+{-# INLINE setNodeEntropy #-}
 
 fromList :: [(Vertex, Int)] -> MinTracker
 fromList xs = MinTracker (PSQ.fromList (fmap assoc xs))

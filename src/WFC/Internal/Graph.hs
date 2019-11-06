@@ -31,10 +31,10 @@ module WFC.Internal.Graph
     , forceDyn
     , values
     , entropyOfQ
-    , setChoiceQ
     , emptyGraph
     , edgeBetween
     , vertexCount
+    , superPos
     ) where
 
 import qualified Data.IntMap.Strict as IM
@@ -42,6 +42,7 @@ import Control.Lens
 import Data.Dynamic
 import Data.Maybe
 import Data.Typeable
+import Data.Typeable.Lens
 import Data.MonoTraversable
 
 type DFilter = Dynamic
@@ -73,6 +74,9 @@ data Quantum =
     forall f. (Typeable f, Typeable (Element f), MonoFoldable f) => Quantum
         { options   :: SuperPos f
         }
+
+superPos :: (Typeable f, Typeable (Element f), MonoFoldable f) => Traversal' Quantum (SuperPos f)
+superPos f (Quantum o) = Quantum <$> (o & _cast %%~ f)
 
 instance Show Quantum where
   show _ = "Quantum"
@@ -118,9 +122,6 @@ edgesFrom :: Vertex -> Traversal' (Graph s) (Vertex, DFilter)
 edgesFrom n = edges n . imAsList . traversed . coerced
 {-# INLINE edgesFrom #-}
 
-setChoiceQ :: (Typeable f, Typeable (Element f), MonoFoldable f) => SuperPos f -> Quantum -> Quantum
-setChoiceQ s (Quantum _) = Quantum s
-
-entropyOfQ :: Quantum -> Maybe Int
+entropyOfQ :: Quantum -> (Maybe Int)
 entropyOfQ (Quantum (Unknown xs)) = Just $ olength xs
 entropyOfQ _ = Nothing

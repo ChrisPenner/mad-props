@@ -14,18 +14,13 @@ import qualified WFC.Internal.MinTracker as MT
 newtype Backtrack a = Backtrack (StateT MT.MinTracker (LogicT IO) a)
     deriving newtype (Functor, Alternative, Applicative, Monad, MonadState MT.MinTracker, MonadIO)
 
-
-guard' :: Bool -> Backtrack ()
-guard' b = Backtrack . lift . lift $ guard b
-
-backtrack :: Backtrack a
-backtrack = fail "backtrack!"
-
 rselect :: (Foldable f, Functor f) => f a -> Backtrack a
 rselect (toList -> fa) = liftIO (shuffleM fa) >>= select
+{-# INLINE rselect #-}
 
 select :: (Foldable f, Functor f) => f a -> Backtrack a
 select fa = asum (pure <$> fa)
+{-# INLINE select #-}
 
 runWFC :: MT.MinTracker -> Backtrack a -> IO a
 runWFC mt (Backtrack wfc) = observeT . (flip evalStateT mt) $ wfc

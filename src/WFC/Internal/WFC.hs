@@ -48,7 +48,7 @@ choicesOfQ' (Quantum (Observed{})) _ _ = error "Can't collapse an already collap
 choicesOfQ' (Quantum (Unknown xs :: SuperPos f)) n g = do
     let options = otoList xs
     choice <- select options
-    let picked = g & valueAt n %~ setChoiceQ (Observed choice :: SuperPos f)
+    let picked = g & valueAt n . superPos .~ (Observed choice :: SuperPos f)
     propagate (n, toDyn choice) picked
 {-# INLINE choicesOfQ' #-}
 
@@ -68,7 +68,7 @@ initMinTracker :: Graph s -> MT.MinTracker
 initMinTracker graph' = MT.fromList (allEntropies ^.. traversed . below _Just)
     where
       allEntropies :: [(G.Vertex, Maybe Int)]
-      allEntropies = allNodes & traversed . _2 %~ entropyOfQ
+      allEntropies = allNodes ^.. traversed . alongside id (to entropyOfQ)
       allNodes :: [(G.Vertex, Quantum)]
       allNodes =  graph' ^.. values
 
