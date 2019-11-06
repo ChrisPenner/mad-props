@@ -1,6 +1,6 @@
 module Main where
 
-import Sudoku
+import Examples.Sudoku
 
 main :: IO ()
 main = solveAll
