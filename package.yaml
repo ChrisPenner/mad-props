@@ -31,6 +31,7 @@ dependencies:
 - random-shuffle
 - psqueues
 - logict
+- mono-traversable
 
 library:
   source-dirs: src

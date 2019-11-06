@@ -17,6 +17,7 @@ import Control.Monad.IO.Class
 import qualified WFC.Internal.MinTracker as MT
 import Control.Monad
 import Data.Dynamic
+import Data.MonoTraversable
 
 solve :: Graph s
       -> IO (Graph s)
@@ -45,10 +46,10 @@ collapse n g = do
 
 choicesOfQ' :: Quantum -> Vertex -> Graph s -> Backtrack (Graph s)
 choicesOfQ' (Quantum (Observed{})) _ _ = error "Can't collapse an already collapsed node!"
-choicesOfQ' (Quantum (Unknown xs :: SuperPos f a)) n g = do
-    let options = choices xs
+choicesOfQ' (Quantum (Unknown xs :: SuperPos f)) n g = do
+    let options = otoList xs
     choice <- select options
-    let picked = g & valueAt n %~ setChoiceQ (Observed choice :: SuperPos f a)
+    let picked = g & valueAt n %~ setChoiceQ (Observed choice :: SuperPos f)
     propagate (n, toDyn choice) picked
 {-# INLINE choicesOfQ' #-}
 
@@ -86,9 +87,9 @@ propagateSingle :: DChoice -> (Vertex, DFilter) -> Graph s -> Backtrack (Graph s
 propagateSingle v (to', dfilter) g = g & valueAt to' %%~ alterQ
   where
     alterQ :: Quantum -> Backtrack Quantum
-    alterQ (Quantum (Unknown xs :: SuperPos f a)) = do
-        let filteredDown = (forceDyn $ dynApp (dynApp dfilter v) (toDyn xs) :: f a)
-        MT.setNodeEntropy to' (countOptions filteredDown)
+    alterQ (Quantum (Unknown xs :: SuperPos f)) = do
+        let filteredDown = (forceDyn $ dynApp (dynApp dfilter v) (toDyn xs) :: f)
+        MT.setNodeEntropy to' (olength filteredDown)
         return $ Quantum (Unknown filteredDown)
     alterQ q = return q
 {-# INLINE propagateSingle #-}

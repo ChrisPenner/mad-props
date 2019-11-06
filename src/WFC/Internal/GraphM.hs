@@ -14,26 +14,27 @@ import Control.Lens
 import Data.Typeable
 import Data.Dynamic
 import Data.Typeable.Lens
+import Data.MonoTraversable
 
 newtype GraphM s a =
     GraphM { runGraphM :: StateT (Graph s) IO a
            }
     deriving newtype (Functor, Applicative, Monad, MonadIO)
 
-data PVar s (f :: * -> *) a = PVar Vertex
+data PVar s f = PVar Vertex
   deriving (Eq, Show, Ord)
 
-newPVar :: (Container f, Typeable a) => f a -> GraphM s (PVar s f a)
+newPVar :: (MonoFoldable f, Typeable f, Typeable (Element f)) => f -> GraphM s (PVar s f)
 newPVar xs = GraphM $ do
     v <- vertexCount <+= 1
     vertices . at v ?= (Quantum (Unknown xs), mempty)
     return (PVar (Vertex v))
 
-link :: (Typeable a, Typeable g, Typeable b) => PVar s f a -> PVar s g b -> (a -> g b -> g b) -> GraphM s ()
+link :: (Typeable g, Typeable (Element f)) => PVar s f -> PVar s g -> (Element f -> g -> g) -> GraphM s ()
 link (PVar from') (PVar to') f = GraphM $ do
     edgeBetween from' to' ?= toDyn f
 
-readPVar :: Typeable a => Graph s -> PVar s f a -> a
+readPVar :: Typeable a => Graph s -> PVar s f -> a
 readPVar g (PVar v) = (g ^?! valueAt v . to unpackQuantum)
 
 unpackQuantum :: Typeable a => Quantum -> a

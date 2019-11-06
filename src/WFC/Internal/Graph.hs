@@ -12,6 +12,7 @@
 {-# LANGUAGE DataKinds #-}
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE TypeApplications #-}
+{-# LANGUAGE GADTs #-}
 
 module WFC.Internal.Graph
     ( Graph
@@ -34,7 +35,6 @@ module WFC.Internal.Graph
     , emptyGraph
     , edgeBetween
     , vertexCount
-    , Container(..)
     ) where
 
 import qualified Data.IntMap.Strict as IM
@@ -43,7 +43,7 @@ import Data.Dynamic
 import Data.Maybe
 import Data.Typeable
 import Data.Coerce
-import qualified Data.Set as S
+import Data.MonoTraversable
 
 type DFilter = Dynamic
 type DChoice = Dynamic
@@ -51,24 +51,29 @@ type Vertex' = Int
 newtype Vertex = Vertex Int
   deriving (Show, Eq, Ord)
 
-data SuperPos f a =
-    Observed a | Unknown (f a)
-  deriving (Show, Foldable)
+data SuperPos f where
+    Observed :: MonoFoldable f => Element f -> SuperPos f
+    Unknown :: MonoFoldable f => f -> SuperPos f
 
-makePrisms ''SuperPos
+_Unknown :: MonoFoldable f => Prism' (SuperPos f) f
+_Unknown = prism' embed match
+  where
+    embed = Unknown
+    match (Unknown f) = Just f
+    match _ = Nothing
+
+_Observed :: MonoFoldable f => Prism' (SuperPos f) (Element f)
+_Observed = prism' embed match
+  where
+    embed = Observed
+    match (Observed a) = Just a
+    match _ = Nothing
+
 
 data Quantum =
-    forall f a. (Container f, Typeable a, Typeable f) => Quantum
-        { options   :: SuperPos f a
+    forall f. (Typeable f, Typeable (Element f), MonoFoldable f) => Quantum
+        { options   :: SuperPos f
         }
-
-class ( Typeable f) => Container f where
-  countOptions :: f a -> Int
-  choices :: f a -> [a]
-
-instance Container S.Set where
-  countOptions = S.size
-  choices = S.toList
 
 instance Show Quantum where
   show _ = "Quantum"
@@ -114,9 +119,9 @@ edgesFrom :: Vertex -> Traversal' (Graph s) (Vertex, DFilter)
 edgesFrom n = edges n . imAsList . traversed . coerced
 {-# INLINE edgesFrom #-}
 
-setChoiceQ :: (Typeable f, Typeable a, Container f) => SuperPos f a -> Quantum -> Quantum
+setChoiceQ :: (Typeable f, Typeable (Element f), MonoFoldable f) => SuperPos f -> Quantum -> Quantum
 setChoiceQ s (Quantum _) = Quantum s
 
 entropyOfQ :: Quantum -> Maybe Int
-entropyOfQ (Quantum (Unknown xs)) = Just $ countOptions xs
+entropyOfQ (Quantum (Unknown xs)) = Just $ olength xs
 entropyOfQ _ = Nothing

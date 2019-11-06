@@ -24,8 +24,8 @@ txtToBoard = (fmap . fmap) inflate . fmap T.unpack
 boardToText :: [[Int]] -> String
 boardToText xs = unlines . fmap concat $ (fmap . fmap) show xs
 
-easyBoard :: [String]
-easyBoard = lines $ dropWhile (=='\n') [r|
+easyBoard :: [T.Text]
+easyBoard = T.lines $ T.dropWhile (=='\n') [r|
 ..3.42.9.
 .9..6.5..
 5......1.
@@ -49,7 +49,7 @@ hardestBoard = lines $ dropWhile (=='\n') [r|
 .9....4..|]
 
 
-expected :: String
+expected :: T.Text
 expected = [r|613542897
 897361542
 542987316
@@ -87,7 +87,7 @@ puzzles = fmap toPuzzle . tail . T.lines $ [r|
     toPuzzle :: T.Text -> [T.Text]
     toPuzzle = T.chunksOf 9
 
-linkBoard :: [[PVar s S.Set Int]] -> GraphM s ()
+linkBoard :: [[PVar s (S.Set Int)]] -> GraphM s ()
 linkBoard xs = do
     let coordPairs = do r <- [0..8]
                         c <- [0..8]
@@ -101,18 +101,19 @@ linkBoard xs = do
     sameCol (_, c) (_, c')  = c == c'
     sameBlock (r, c) (r', c') = (r `div` 3 == r' `div` 3) && (c `div` 3 == c' `div` 3)
 
-setup :: [[S.Set Int]]-> GraphM s [[PVar s S.Set Int]]
+setup :: [[S.Set Int]]-> GraphM s [[PVar s (S.Set Int)]]
 setup board = do
     vars <- (traverse . traverse) newPVar board
     linkBoard vars
     return vars
 
-solvePuzzle :: [T.Text] -> IO ()
+solvePuzzle :: [T.Text] -> IO T.Text
 solvePuzzle puz = do
     (vars, g) <- solveGraph (setup $ txtToBoard puz)
     let results = (fmap . fmap) (readPVar g) vars
     let sResults = boardToText results
     liftIO $ putStrLn sResults
+    return (T.pack sResults)
 
 solveAll :: IO ()
 solveAll = do
@@ -120,3 +121,10 @@ solveAll = do
 
 disjoint :: Int -> S.Set Int -> S.Set Int
 disjoint x xs = S.delete x xs
+
+test :: IO ()
+test = do
+    result <- solvePuzzle easyBoard
+    if result == expected then putStrLn "Success!"
+                          else putStrLn "UH OH!"
+    return ()
