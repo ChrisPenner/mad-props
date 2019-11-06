@@ -34,7 +34,6 @@ import Control.Lens
 import Data.Dynamic
 import Data.Maybe
 import Data.Typeable
-import Data.List
 import WFC.Types
 import Data.Foldable
 
@@ -57,24 +56,18 @@ forceDyn d =
   where
     expected = show (typeOf (undefined :: a))
 
-data Graph k =
+data Graph =
     Graph { _vertices :: !(IM.IntMap (Quantum, IM.IntMap DFilter))
-          , _labels :: !(HM.HashMap k Int)
           , _vertexCount :: !Int
           } deriving Show
 
 
 makeLenses ''Graph
 
-emptyGraph :: Graph ()
-emptyGraph = Graph mempty mempty 0
+emptyGraph :: Graph
+emptyGraph = Graph mempty 0
 
--- instance FunctorWithIndex Int (Graph k) where
--- instance FoldableWithIndex Int (Graph k) where
--- instance TraversableWithIndex Int (Graph k) where
---     itraversed = vertices . itraversed
-
--- newGraph :: forall k e a. (Eq k, Hashable k, Hashable e, Eq e) => [(k, a)] -> [(k, k, e)] -> Graph k
+-- newGraph :: forall k e a. (Eq k, Hashable k, Hashable e, Eq e) => [(k, a)] -> [(k, k, e)] -> Graph
 -- newGraph vertexKeys edgeList = Graph vs es ls
 --   where
 --     vs :: IM.IntMap a
@@ -87,7 +80,7 @@ emptyGraph = Graph mempty mempty 0
 --     ls :: HM.HashMap k Int
 --     ls = HM.fromList (zip (fst <$> vertexKeys) [0..])
 
-valueAt :: Vertex -> Traversal' (Graph k) Quantum
+valueAt :: Vertex -> Traversal' Graph Quantum
 valueAt n = vertices . ix n . _1
 {-# INLINE valueAt #-}
 
@@ -99,37 +92,21 @@ imAsList :: Iso' (IM.IntMap v ) [(Vertex, v)]
 imAsList = iso IM.toList IM.fromList
 {-# INLINABLE imAsList #-}
 
-edges :: Vertex -> Traversal' (Graph k) (IM.IntMap DFilter)
+edges :: Vertex -> Traversal' Graph (IM.IntMap DFilter)
 edges n = vertices . ix n . _2
 {-# INLINABLE edges #-}
 
-edgeBetween :: Vertex -> Vertex -> Traversal' (Graph k) DFilter
+edgeBetween :: Vertex -> Vertex -> Traversal' Graph DFilter
 edgeBetween from' to' = edges from' . ix to'
 {-# INLINABLE edgeBetween #-}
 
-values :: IndexedTraversal' Vertex (Graph k) Quantum
+values :: IndexedTraversal' Vertex Graph Quantum
 values = vertices . itraversed <. _1
 {-# INLINABLE values #-}
 
-edgesFrom :: Vertex -> Traversal' (Graph k) (Vertex, DFilter)
+edgesFrom :: Vertex -> Traversal' Graph (Vertex, DFilter)
 edgesFrom n = edges n . imAsList . traversed
 {-# INLINE edgesFrom #-}
-
-vertexAt :: (Eq k, Hashable k) => k -> Fold (Graph k) Vertex
-vertexAt k = labels . folding (HM.lookup k)
-{-# INLINE vertexAt #-}
-
-valueAtKey :: (Eq k, Hashable k) => k -> Traversal' (Graph k) Quantum
-valueAtKey k f graph' =
-    case vertex of
-        Nothing -> pure graph'
-        Just v -> graph' & valueAt v %%~ f
-    where
-      vertex = graph' ^? vertexAt k
-{-# INLINE valueAtKey #-}
-
-choicesOfQ :: Quantum -> [DChoice]
-choicesOfQ (Quantum (Unknown xs)) = toDyn <$> toList xs
 
 setChoiceQ :: (Typeable f, Typeable a, Foldable f) => SuperPos f a -> Quantum -> Quantum
 setChoiceQ s (Quantum _) = Quantum s

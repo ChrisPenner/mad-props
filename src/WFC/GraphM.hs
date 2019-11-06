@@ -13,7 +13,7 @@ import Data.Typeable
 import Data.Dynamic
 import Unsafe.Coerce
 
-newtype GraphM a = GraphM {runGraphM :: StateT (Graph ()) IO a}
+newtype GraphM a = GraphM {runGraphM :: StateT Graph IO a}
     deriving newtype (Functor, Applicative, Monad, MonadIO)
 
 data PVar (f :: * -> *) a = PVar Vertex
@@ -29,14 +29,14 @@ link :: (Typeable a, Typeable g, Typeable b) => PVar f a -> PVar g b -> (a -> g 
 link (PVar from') (PVar to') f = GraphM $ do
     edges from' . at to' ?= toDyn f
 
-getGraph :: GraphM (Graph ())
+getGraph :: GraphM Graph
 getGraph = GraphM get
 
-readPVar :: PVar f a -> Graph k -> a
+readPVar :: PVar f a -> Graph -> a
 readPVar (PVar v) g = g ^?! valueAt v . to unpackQuantum
 
 unpackQuantum :: Quantum -> a
 unpackQuantum (Quantum (Observed a)) = unsafeCoerce a
 
-buildGraph :: GraphM a -> IO (Graph ())
+buildGraph :: GraphM a -> IO Graph
 buildGraph = flip execStateT emptyGraph . runGraphM
