@@ -5,13 +5,13 @@
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE FlexibleContexts #-}
 
-module WFC.GraphM (GraphM, newPVar, link, solveGraph, readPVar, PVar) where
+module WFC.Internal.GraphM (GraphM, newPVar, link, solveGraph, readPVar, PVar) where
 
-import WFC
-import WFC.Graph
+import WFC.Internal.Graph
+import WFC.Internal.WFC
 import Control.Monad.State
 import Control.Lens
-import WFC.Types
+import WFC.Internal.Types
 import Data.Typeable
 import Data.Dynamic
 import Data.Typeable.Lens

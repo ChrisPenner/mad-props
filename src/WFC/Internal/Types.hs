@@ -2,7 +2,7 @@
 {-# LANGUAGE QuasiQuotes #-}
 {-# LANGUAGE TemplateHaskell #-}
 {-# LANGUAGE GADTs #-}
-module WFC.Types where
+module WFC.Internal.Types where
 
 import Control.Lens as L
 

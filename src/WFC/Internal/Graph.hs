@@ -13,7 +13,7 @@
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE TypeApplications #-}
 
-module WFC.Graph
+module WFC.Internal.Graph
     ( Graph
     , valueAt
     , imAsList
@@ -38,7 +38,7 @@ import Control.Lens
 import Data.Dynamic
 import Data.Maybe
 import Data.Typeable
-import WFC.Types
+import WFC.Internal.Types
 import Data.Coerce
 
 type DFilter = Dynamic

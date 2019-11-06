@@ -1,12 +1,12 @@
 {-# LANGUAGE TemplateHaskell #-}
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE LambdaCase #-}
-module WFC.MinTracker where
+module WFC.Internal.MinTracker where
 
 import qualified Data.IntPSQ as PSQ
 import Control.Monad.State
 import Control.Lens as L
-import WFC.Graph
+import WFC.Internal.Graph
 
 data MinTracker =
     MinTracker { _minQueue :: (PSQ.IntPSQ Int ()) }

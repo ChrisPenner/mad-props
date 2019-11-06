@@ -3,7 +3,7 @@
 {-# LANGUAGE QuasiQuotes #-}
 module Sudoku where
 
-import WFC.GraphM
+import WFC
 import Control.Applicative
 import Control.Monad
 import Control.Monad.IO.Class
