@@ -1,5 +1,6 @@
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE TypeFamilies #-}
+{-# LANGUAGE QuasiQuotes #-}
 module Sudoku where
 
 import WFC
@@ -8,29 +9,31 @@ import Control.Applicative
 import Control.Monad
 import Control.Monad.IO.Class
 import Data.Foldable
-import Data.Traversable
 import Control.Lens
+import Text.RawString.QQ (r)
 
 
-smolBoard :: [[Int]]
-smolBoard = [ x, x, x
-            , x, [3], x
-            , x, [6, 7], [6]]
+txtToBoard :: [String] -> [[[Int]]]
+txtToBoard = (fmap . fmap) inflate
   where
-    x = [1..9]
+    inflate :: Char -> [Int]
+    inflate '.' = [1..9]
+    inflate a = [read [a]]
 
-fullBoard :: [[[Int]]]
-fullBoard = [[ x, x, x, x, x, x, x, x, x]
-            ,[x, x, x, x, x, x, x, x, x ]
-            ,[x, x, x, x, x, x, x, x, x ]
-            ,[x, x, x, x, x, x, x, x, x ]
-            ,[x, x, x, x, x, x, x, x, x ]
-            ,[x, x, x, x, x, x, x, x, x ]
-            ,[x, x, x, x, x, x, x, x, x ]
-            ,[x, x, x, x, x, x, x, x, x ]
-            ,[x, x, x, x, x, x, x, x, x ]]
-  where
-    x = [1..9]
+boardToText :: [[Int]] -> String
+boardToText xs = unlines . fmap concat $ (fmap . fmap) show xs
+
+easyBoard :: [String]
+easyBoard = lines $ dropWhile (=='\n') [r|
+..3.42.9.
+.9..6.5..
+5......1.
+..17..285
+..8...1..
+329..87..
+.3......1
+..5.9..2.
+.8.21.6..|]
 
 linkBoard :: [[PVar [] Int]] -> GraphM ()
 linkBoard xs = do
@@ -46,27 +49,14 @@ linkBoard xs = do
     sameCol (_, c) (_, c')  = c == c'
     sameBlock (r, c) (r', c') = (r `div` 3 == r' `div` 3) && (c `div` 3 == c' `div` 3)
 
-setup' :: GraphM ()
-setup' = do
-    vars <- (traverse . traverse) newPVar fullBoard
+setup :: GraphM ()
+setup = do
+    vars <- (traverse . traverse) newPVar (txtToBoard easyBoard)
     linkBoard vars
     g <- getGraph
     g' <- liftIO $ solve g
     let results = fmap (flip readPVar g') <$> vars
-    liftIO $ print results
-    return ()
-
-setup :: GraphM ()
-setup = do
-    vars <- traverse newPVar smolBoard
-    traverse_ (\(a, b) -> link a b disjoint) $ do
-        (a, b) <- (liftA2 (,) vars vars)
-        guard (a /= b)
-        return (a, b)
-    g <- getGraph
-    g' <- liftIO $ solve g
-    let results = flip readPVar g' <$> vars
-    liftIO $ print results
+    liftIO $ putStrLn (boardToText results)
     return ()
 
 disjoint :: Int -> [Int] -> [Int]
@@ -74,5 +64,5 @@ disjoint x = filter (/=x)
 
 run :: IO ()
 run = do
-    buildGraph setup'
+    buildGraph setup
     return ()
