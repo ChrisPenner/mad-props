@@ -1,4 +1,4 @@
-module WFC
+module Props
     (
       solveGraph
     , GraphM
@@ -12,5 +12,5 @@ module WFC
     , require
     ) where
 
-import WFC.Internal.GraphM
-import WFC.Internal.Links
+import Props.Internal.GraphM
+import Props.Internal.Links

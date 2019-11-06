@@ -4,7 +4,7 @@
 {-# LANGUAGE OverloadedStrings #-}
 module Examples.Sudoku where
 
-import WFC
+import Props
 import Control.Applicative
 import Control.Monad
 import Control.Monad.IO.Class

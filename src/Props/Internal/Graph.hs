@@ -14,7 +14,7 @@
 {-# LANGUAGE TypeApplications #-}
 {-# LANGUAGE GADTs #-}
 
-module WFC.Internal.Graph
+module Props.Internal.Graph
     ( Graph
     , valueAt
     , imAsList

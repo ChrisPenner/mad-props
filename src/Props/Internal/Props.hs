@@ -7,14 +7,14 @@
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE DeriveFunctor #-}
 {-# LANGUAGE DeriveTraversable #-}
-module WFC.Internal.WFC (solve, debugStepper) where
+module Props.Internal.Props (solve, debugStepper) where
 
-import qualified WFC.Internal.Graph as G
+import qualified Props.Internal.Graph as G
 import Control.Lens hiding (Context)
-import WFC.Internal.Backtracking
-import WFC.Internal.Graph
+import Props.Internal.Backtracking
+import Props.Internal.Graph
 import Control.Monad.IO.Class
-import qualified WFC.Internal.MinTracker as MT
+import qualified Props.Internal.MinTracker as MT
 import Control.Monad
 import Data.Dynamic
 import Data.MonoTraversable

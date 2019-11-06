@@ -1,14 +1,14 @@
 {-# LANGUAGE ViewPatterns #-}
 {-# LANGUAGE DerivingStrategies #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
-module WFC.Internal.Backtracking where
+module Props.Internal.Backtracking where
 
 import Control.Monad.Logic
 import Control.Applicative
 import Data.Foldable
 import System.Random.Shuffle
 import Control.Monad.State
-import qualified WFC.Internal.MinTracker as MT
+import qualified Props.Internal.MinTracker as MT
 
 -- Note; State on the OUTSIDE means it WILL backtrack state.
 newtype Backtrack a = Backtrack (StateT MT.MinTracker (LogicT IO) a)

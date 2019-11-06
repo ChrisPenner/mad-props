@@ -1,12 +1,12 @@
 {-# LANGUAGE ScopedTypeVariables #-}
-module WFC.Internal.Links
+module Props.Internal.Links
     ( disjoint
     , equal
     , require
     ) where
 
 import qualified Data.Set as S
-import WFC.Internal.GraphM
+import Props.Internal.GraphM
 import Data.Typeable
 
 disjoint :: forall s a. (Typeable a, Ord a) => PVar s (S.Set a) -> PVar s (S.Set a) -> GraphM s ()

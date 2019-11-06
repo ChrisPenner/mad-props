@@ -5,10 +5,10 @@
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE FlexibleContexts #-}
 
-module WFC.Internal.GraphM (GraphM, newPVar, link, solveGraph, readPVar, PVar) where
+module Props.Internal.GraphM (GraphM, newPVar, link, solveGraph, readPVar, PVar) where
 
-import WFC.Internal.Graph
-import WFC.Internal.WFC
+import Props.Internal.Graph
+import Props.Internal.Props
 import Control.Monad.State
 import Control.Lens
 import Data.Typeable
