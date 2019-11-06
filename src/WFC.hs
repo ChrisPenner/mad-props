@@ -20,13 +20,6 @@ import Data.Foldable as F
 import Control.Monad
 import Data.Dynamic
 
--- entropyOf :: DSuperPos -> Maybe Int
--- entropyOf dsuper = Just . count $ toDyn length
---   where
---     count :: SuperPos f a -> Int
---     count = length
--- -- entropyOf (forceDyn -> (Observed _ :: SuperPos f a)) = Nothing
-
 solve :: G.Graph
       -> IO (G.Graph)
 solve graph' = runWFC mt (solve' graph')
@@ -98,4 +91,3 @@ propagateSingle v (to', dfilter) g = g & valueAt to' %%~ alterQ
         return $ Quantum (Unknown filteredDown)
     alterQ q = return q
 {-# INLINABLE propagateSingle #-}
-

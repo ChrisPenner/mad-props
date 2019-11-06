@@ -35,7 +35,6 @@ import Data.Dynamic
 import Data.Maybe
 import Data.Typeable
 import WFC.Types
-import Data.Foldable
 
 type Vertex = Int
 type DFilter = Dynamic

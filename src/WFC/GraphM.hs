@@ -12,6 +12,9 @@ import WFC.Types
 import Data.Typeable
 import Data.Dynamic
 import Unsafe.Coerce
+import Data.Maybe
+import Data.Typeable
+import Data.Typeable.Lens
 
 newtype GraphM a = GraphM {runGraphM :: StateT Graph IO a}
     deriving newtype (Functor, Applicative, Monad, MonadIO)
@@ -32,11 +35,11 @@ link (PVar from') (PVar to') f = GraphM $ do
 getGraph :: GraphM Graph
 getGraph = GraphM get
 
-readPVar :: PVar f a -> Graph -> a
+readPVar :: Typeable a => PVar f a -> Graph -> a
 readPVar (PVar v) g = g ^?! valueAt v . to unpackQuantum
 
-unpackQuantum :: Quantum -> a
-unpackQuantum (Quantum (Observed a)) = unsafeCoerce a
+unpackQuantum :: Typeable a => Quantum -> a
+unpackQuantum (Quantum o) = o ^?! _Observed . _cast
 
 buildGraph :: GraphM a -> IO Graph
 buildGraph = flip execStateT emptyGraph . runGraphM
