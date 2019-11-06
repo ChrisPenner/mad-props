@@ -26,11 +26,11 @@ newPVar :: Typeable a => [a] -> GraphM (PVar [] a)
 newPVar xs = GraphM $ do
     v <- vertexCount <+= 1
     vertices . at v ?= (Quantum (Unknown xs), mempty)
-    return (PVar v)
+    return (PVar (Vertex v))
 
 link :: (Typeable a, Typeable g, Typeable b) => PVar f a -> PVar g b -> (a -> g b -> g b) -> GraphM ()
 link (PVar from') (PVar to') f = GraphM $ do
-    edges from' . at to' ?= toDyn f
+    edgeBetween from' to' ?= toDyn f
 
 getGraph :: GraphM Graph
 getGraph = GraphM get

@@ -35,6 +35,18 @@ easyBoard = lines $ dropWhile (=='\n') [r|
 ..5.9..2.
 .8.21.6..|]
 
+expected :: String
+expected = [r|613542897
+897361542
+542987316
+461739285
+758426139
+329158764
+236874951
+175693428
+984215673
+|]
+
 linkBoard :: [[PVar [] Int]] -> GraphM ()
 linkBoard xs = do
     let coordPairs = do r <- [0..8]
@@ -56,7 +68,11 @@ setup = do
     g <- getGraph
     g' <- liftIO $ solve g
     let results = fmap (flip readPVar g') <$> vars
-    liftIO $ putStrLn (boardToText results)
+    let sResults = boardToText results
+    liftIO $ putStrLn sResults
+    liftIO $ if sResults == expected
+       then putStrLn "SUCCESS"
+       else putStrLn "UNEXPECTED!"
     return ()
 
 disjoint :: Int -> [Int] -> [Int]

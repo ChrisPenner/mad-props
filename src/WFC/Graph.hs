@@ -11,6 +11,7 @@
 {-# LANGUAGE KindSignatures #-}
 {-# LANGUAGE DataKinds #-}
 {-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE TypeApplications #-}
 
 module WFC.Graph where
     -- ( Graph
@@ -28,18 +29,18 @@ module WFC.Graph where
     -- ) where
 
 import qualified Data.IntMap.Strict as IM
-import qualified Data.HashMap.Strict as HM
-import Data.Hashable
 import Control.Lens
 import Data.Dynamic
 import Data.Maybe
 import Data.Typeable
 import WFC.Types
+import Data.Coerce
 
-type Vertex = Int
 type DFilter = Dynamic
-type DSuperPos = Dynamic
 type DChoice = Dynamic
+type Vertex' = Int
+newtype Vertex = Vertex Int
+  deriving (Show, Eq, Ord)
 
 data Quantum =
     forall f a. (Foldable f, Typeable a, Typeable f) => Quantum
@@ -66,45 +67,29 @@ makeLenses ''Graph
 emptyGraph :: Graph
 emptyGraph = Graph mempty 0
 
--- newGraph :: forall k e a. (Eq k, Hashable k, Hashable e, Eq e) => [(k, a)] -> [(k, k, e)] -> Graph
--- newGraph vertexKeys edgeList = Graph vs es ls
---   where
---     vs :: IM.IntMap a
---     vs = IM.fromList $ fmap (first (fromJust . (HM.lookup ?? ls))) vertexKeys
---     es :: IM.IntMap (HM.HashMap e Vertex)
---     es = IM.unionsWith HM.union $ fmap toEdge edgeList
---     toEdge :: (k, k, e) -> IM.IntMap (HM.HashMap e Vertex)
---     toEdge (HM.lookup ?? ls -> Just from', HM.lookup ?? ls -> Just to', e) = IM.singleton from' (HM.singleton e to')
---     toEdge _ = mempty
---     ls :: HM.HashMap k Int
---     ls = HM.fromList (zip (fst <$> vertexKeys) [0..])
-
-valueAt :: Vertex -> Traversal' Graph Quantum
-valueAt n = vertices . ix n . _1
+valueAt :: Vertex -> Lens' Graph Quantum
+valueAt (Vertex n) = singular (vertices . ix n . _1)
 {-# INLINE valueAt #-}
 
-hmAsList :: (Eq k, Hashable k) => Iso' (HM.HashMap k v ) [(k, v)]
-hmAsList = iso HM.toList HM.fromList
-{-# INLINABLE hmAsList #-}
-
-imAsList :: Iso' (IM.IntMap v ) [(Vertex, v)]
+imAsList :: Iso' (IM.IntMap v ) [(Vertex', v)]
 imAsList = iso IM.toList IM.fromList
 {-# INLINABLE imAsList #-}
 
-edges :: Vertex -> Traversal' Graph (IM.IntMap DFilter)
-edges n = vertices . ix n . _2
+edges :: Vertex -> Lens' Graph (IM.IntMap DFilter)
+edges (Vertex n) = singular (vertices . ix n . _2)
 {-# INLINABLE edges #-}
 
-edgeBetween :: Vertex -> Vertex -> Traversal' Graph DFilter
-edgeBetween from' to' = edges from' . ix to'
+edgeBetween :: Vertex -> Vertex -> Lens' Graph (Maybe DFilter)
+edgeBetween from' (Vertex to') = edges from' . at to'
 {-# INLINABLE edgeBetween #-}
 
+
 values :: IndexedTraversal' Vertex Graph Quantum
-values = vertices . itraversed <. _1
+values = vertices . reindexed (coerce @Int @Vertex) itraversed <. _1
 {-# INLINABLE values #-}
 
 edgesFrom :: Vertex -> Traversal' Graph (Vertex, DFilter)
-edgesFrom n = edges n . imAsList . traversed
+edgesFrom n = edges n . imAsList . traversed . coerced
 {-# INLINE edgesFrom #-}
 
 setChoiceQ :: (Typeable f, Typeable a, Foldable f) => SuperPos f a -> Quantum -> Quantum
