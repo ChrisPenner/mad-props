@@ -42,7 +42,6 @@ import Control.Lens
 import Data.Dynamic
 import Data.Maybe
 import Data.Typeable
-import Data.Coerce
 import Data.MonoTraversable
 
 type DFilter = Dynamic
@@ -111,8 +110,8 @@ edgeBetween :: Vertex -> Vertex -> Lens' (Graph s) (Maybe DFilter)
 edgeBetween from' (Vertex to') = edges from' . at to'
 {-# INLINABLE edgeBetween #-}
 
-values :: IndexedTraversal' Vertex (Graph s) Quantum
-values = vertices . reindexed (coerce @Int @Vertex) itraversed <. _1
+values :: Traversal' (Graph s) (Vertex, Quantum)
+values = vertices . imAsList . traversed . alongside coerced _1
 {-# INLINABLE values #-}
 
 edgesFrom :: Vertex -> Traversal' (Graph s) (Vertex, DFilter)

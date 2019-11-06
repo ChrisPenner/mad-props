@@ -32,9 +32,8 @@ step :: Graph s
      -> Backtrack (Either (Graph s) (Graph s))
 step graph' = MT.popMinNode >>= \case
     Nothing -> return $ Left graph'
-    Just n  -> do
-        newGraph <- collapse n graph'
-        return $ Right newGraph
+    Just n  -> Right <$> collapse n graph'
+{-# INLINE step #-}
 
 collapse :: G.Vertex
          -> Graph s
@@ -71,7 +70,7 @@ initMinTracker graph' = MT.fromList (allEntropies ^.. traversed . below _Just)
       allEntropies :: [(G.Vertex, Maybe Int)]
       allEntropies = allNodes & traversed . _2 %~ entropyOfQ
       allNodes :: [(G.Vertex, Quantum)]
-      allNodes =  graph' ^@.. values
+      allNodes =  graph' ^.. values
 
 
 propagate :: forall s. (Vertex, DChoice) -> Graph s -> Backtrack (Graph s)
