@@ -11,7 +11,6 @@ import Data.Foldable
 import Control.Lens
 import Text.RawString.QQ (r)
 
-
 txtToBoard :: [String] -> [[[Int]]]
 txtToBoard = (fmap . fmap) inflate
   where

@@ -13,20 +13,25 @@
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE TypeApplications #-}
 
-module WFC.Graph where
-    -- ( Graph
-    -- , newGraph
-    -- , valueAt
-    -- , hmAsList
-    -- , imAsList
-    -- , edgesFrom
-    -- , vertexAt
-    -- , valueAtKey
-    -- , edges
-    -- , vertices
-    -- , labels
-    -- , Vertex
-    -- ) where
+module WFC.Graph
+    ( Graph
+    , valueAt
+    , imAsList
+    , edgesFrom
+    , edges
+    , vertices
+    , Vertex(..)
+    , Quantum(..)
+    , DFilter
+    , DChoice
+    , forceDyn
+    , values
+    , entropyOfQ
+    , setChoiceQ
+    , emptyGraph
+    , edgeBetween
+    , vertexCount
+    ) where
 
 import qualified Data.IntMap.Strict as IM
 import Control.Lens
