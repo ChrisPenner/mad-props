@@ -13,13 +13,15 @@ import Control.Lens
 import Text.RawString.QQ (r)
 import qualified Data.Text as T
 import qualified Data.Set as S
+import Data.List
+import Data.Foldable
 
-txtToBoard :: [T.Text] -> [[S.Set Int]]
-txtToBoard = (fmap . fmap) inflate . fmap T.unpack
+txtToBoard :: [String] -> [[S.Set Int]]
+txtToBoard = (fmap . fmap) possibilities
   where
-    inflate :: Char -> S.Set Int
-    inflate '.' = S.fromList [1..9]
-    inflate a = S.fromList [read [a]]
+    possibilities :: Char -> S.Set Int
+    possibilities '.' = S.fromList [1..9]
+    possibilities a = S.fromList [read [a]]
 
 boardToText :: [[Int]] -> String
 boardToText xs = unlines . fmap concat $ (fmap . fmap) show xs
@@ -37,7 +39,7 @@ easyBoard = T.lines $ T.dropWhile (=='\n') [r|
 .8.21.6..|]
 
 hardestBoard :: [String]
-hardestBoard = lines $ dropWhile (=='\n') [r|
+hardestBoard = tail . lines $ [r|
 8........
 ..36.....
 .7..9.2..
@@ -61,7 +63,7 @@ expected = [r|613542897
 984215673
 |]
 
-puzzles :: [[T.Text]]
+puzzles :: [[String]]
 puzzles = fmap toPuzzle . tail . T.lines $ [r|
 ..............3.85..1.2.......5.7.....4...1...9.......5......73..2.1........4...9
 .......12........3..23..4....18....5.6..7.8.......9.....85.....9...4.5..47...6...
@@ -84,22 +86,65 @@ puzzles = fmap toPuzzle . tail . T.lines $ [r|
 1.......2.9.4...5...6...7...5.3.4.......6........58.4...2...6...3...9.8.7.......1
 .....1.2.3...4.5.....6....7..2.....1.8..9..3.4.....8..5....2....9..3.4....67.....|]
   where
-    toPuzzle :: T.Text -> [T.Text]
-    toPuzzle = T.chunksOf 9
+    toPuzzle :: T.Text -> [String]
+    toPuzzle = fmap T.unpack . T.chunksOf 9
+
+ts :: [[Int]]
+ts = [[1,2,3,4,5,6,7,8,9]
+     ,[11,12,13,14,15,16,17,18,19]
+     ,[21,22,23,24,25,26,27,28,29]
+     ,[31,32,33,34,35,36,37,38,39]
+     ,[41,42,43,44,45,46,47,48,49]
+     ,[51,52,53,54,55,56,57,58,59]
+     ,[61,62,63,64,65,66,67,68,69]
+     ,[71,72,73,74,75,76,77,78,79]
+     ,[81,82,83,84,85,86,87,88,89]
+     ]
+
+-- ts' :: [[[ Int ]]]
+-- ts' = [ [[ 1, 2, 3], [ 4, 5, 6], [ 7, 8, 9]]
+--       , [[11,12,13], [14,15,16], [17,18,19]]
+--       , [[21,22,23], [24,25,26], [27,28,29]]
+--       , [[31,32,33], [34,35,36], [37,38,39]]
+--       , [[41,42,43], [44,45,46], [47,48,49]]
+--       , [[51,52,53], [54,55,56], [57,58,59]]
+--       , [[61,62,63], [64,65,66], [67,68,69]]
+--       , [[71,72,73], [74,75,76], [77,78,79]]
+--       , [[81,82,83], [84,85,86], [87,88,89]]
+--       ]
+
+-- rowsOf' :: [[[Int]]] -> [[Int]]
+-- rowsOf' = fmap concat
+-- colsOf' :: [[[Int]]] -> [[Int]]
+-- colsOf' = concat . transpose
+-- blocksOf' :: [[[Int]]] -> [[Int]]
+-- blocksOf' = chunksOf 9 . concat . concat . transpose
+
+rowsOf :: [[a]] -> [[a]]
+rowsOf = id
+colsOf :: [[a]] -> [[a]]
+colsOf = transpose
+blocksOf :: [[a]] -> [[a]]
+blocksOf = chunksOf 9 . concat . concat . fmap transpose . chunksOf 3 . transpose
+
+chunksOf :: Int -> [a] -> [[a]]
+chunksOf n = unfoldr go
+  where
+    go [] = Nothing
+    go xs = Just (take n xs, drop n xs)
+
 
 linkBoard :: [[PVar s (S.Set Int)]] -> GraphM s ()
 linkBoard xs = do
-    let coordPairs = do r <- [0..8]
-                        c <- [0..8]
-                        return (r, c)
-    for_ (liftA2 (,) coordPairs coordPairs) $ \(a, b) ->
-        when (sameRow a b || sameCol a b || sameBlock a b)
-            $ disjointPair a b
+    let rows = rowsOf xs
+    let cols = colsOf xs
+    let blocks = blocksOf xs
+    for_ (rows <> cols <> blocks) $ \region -> do
+        let uniquePairings = [(a, b) | a <- region, b <- region, a /= b]
+        for_ uniquePairings $ \(a, b) -> link a b disj
   where
-    disjointPair (r, c) (r', c') = disjoint (xs ^?! ix r . ix c) (xs ^?! ix r' . ix c')
-    sameRow (r, _) (r', _)  = r == r'
-    sameCol (_, c) (_, c')  = c == c'
-    sameBlock (r, c) (r', c') = (r `div` 3 == r' `div` 3) && (c `div` 3 == c' `div` 3)
+    disj :: Ord a => a -> S.Set a -> S.Set a
+    disj x xs = S.delete x xs
 
 setup :: [[S.Set Int]]-> GraphM s [[PVar s (S.Set Int)]]
 setup board = do
@@ -107,21 +152,19 @@ setup board = do
     linkBoard vars
     return vars
 
-solvePuzzle :: [T.Text] -> IO T.Text
+solvePuzzle :: [String] -> IO ()
 solvePuzzle puz = do
     (vars, g) <- solveGraph (setup $ txtToBoard puz)
     let results = (fmap . fmap) (readPVar g) vars
-    let sResults = boardToText results
-    liftIO $ putStrLn sResults
-    return (T.pack sResults)
+    putStrLn $ boardToText results
 
 solveAll :: IO ()
 solveAll = do
     traverse_ solvePuzzle (take 5 puzzles)
 
-test :: IO ()
-test = do
-    result <- solvePuzzle easyBoard
-    if result == expected then putStrLn "Success!"
-                          else putStrLn "UH OH!"
-    return ()
+-- test :: IO ()
+-- test = do
+--     result <- solvePuzzle hardestBoard
+--     if result == expected then putStrLn "Success!"
+--                           else putStrLn "UH OH!"
+--     return ()
