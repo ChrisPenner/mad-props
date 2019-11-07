@@ -55,23 +55,26 @@ data SuperPos f where
     Observed :: MonoFoldable f => Element f -> SuperPos f
     Unknown :: MonoFoldable f => f -> SuperPos f
 
-_Unknown :: MonoFoldable f => Prism' (SuperPos f) f
+instance Show (SuperPos f) where
+  show (Observed _) = "Observed"
+  show (Unknown _) = "Unknown"
+
+_Unknown :: (Show f, Show (Element f), MonoFoldable f) => Prism' (SuperPos f) f
 _Unknown = prism' embed match
   where
     embed = Unknown
     match (Unknown f) = Just f
     match _ = Nothing
 
-_Observed :: MonoFoldable f => Prism' (SuperPos f) (Element f)
+_Observed :: (Show (Element f), MonoFoldable f) => Prism' (SuperPos f) (Element f)
 _Observed = prism' embed match
   where
     embed = Observed
     match (Observed a) = Just a
     match _ = Nothing
 
-
 data Quantum =
-    forall f. (Typeable f, Typeable (Element f), MonoFoldable f) => Quantum
+    forall f. (Show (SuperPos f), Typeable f, Typeable (Element f), MonoFoldable f) => Quantum
         { options   :: SuperPos f
         }
 
@@ -79,7 +82,7 @@ superPos :: (Typeable f, Typeable (Element f), MonoFoldable f) => Traversal' Qua
 superPos f (Quantum o) = Quantum <$> (o & _cast %%~ f)
 
 instance Show Quantum where
-  show _ = "Quantum"
+  show (Quantum xs) = "Quantum " <> show xs
 
 forceDyn :: forall a. Typeable a => Dynamic -> a
 forceDyn d =

@@ -5,16 +5,11 @@
 module Examples.Sudoku where
 
 import Props
-import Control.Applicative
-import Control.Monad
-import Control.Monad.IO.Class
 import Data.Foldable
-import Control.Lens
 import Text.RawString.QQ (r)
 import qualified Data.Text as T
 import qualified Data.Set as S
 import Data.List
-import Data.Foldable
 
 txtToBoard :: [String] -> [[S.Set Int]]
 txtToBoard = (fmap . fmap) possibilities

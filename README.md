@@ -132,7 +132,54 @@ We can plug in our hardest sudoku and after a second or two we'll print out the 
 
 You can double check it for me, but I'm pretty sure that's a valid solution!
 
+## Example: N-Queens
+
+Just for fun, here's the N-Queens problem
+
+```haskell
+{-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE ViewPatterns #-}
+module NQueens where
+
+import qualified Data.Set as S
+import Props
+import Data.Foldable
+import Data.List
+
+type Coord = (Int, Int)
+
+killSquares :: Coord -> S.Set Coord -> S.Set Coord
+killSquares c = S.filter (killSquare c)
+
+killSquare :: Coord -> Coord -> Bool
+killSquare (x, y) (x', y')
+  -- Same Row
+  | x == x' = False
+  -- Same Column
+  | y == y' = False
+  -- Same Diagonal 1
+  | x - x' == y - y' = False
+  -- Same Diagonal 2
+  | x + y == x' + y' = False
+  | otherwise = True
+
+setup :: Int -> GraphM s [PVar s (S.Set Coord)]
+setup n = do
+    -- All possible grid locations
+    let locations = S.fromList [(x, y) | x <- [0..n - 1], y <- [0..n - 1]]
+    let queens = replicate n locations
+    queenVars <- traverse newPVar queens
+    let queenPairs = [(a, b) | a <- queenVars, b <- queenVars, a /= b]
+    for_ queenPairs $ \(a, b) -> link a b killSquares
+    return queenVars
+
+solve :: Int -> IO ()
+solve n = do
+    (vars, g) <- solveGraph (setup n)
+    let results = readPVar g <$> vars
+    putStrLn $ printSolution n results
+```
+
 ## Performance
 
-This is a generalized solution, so performance suffers in relation to a tool built for the job (e.g. It's not as fast as dedicated sudoku solvers); but it does "pretty well". I'm still working on improving performance, but try it out and see how you fare.
-
+This is a generalized solution, so performance suffers in relation to a tool built for the job (e.g. It's not as fast as dedicated Sudoku solvers); but it does "pretty well". I'm still working on improving performance, but try it out and see how you fare.

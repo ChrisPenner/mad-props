@@ -4,7 +4,7 @@ cabal-version: 1.12
 --
 -- see: https://github.com/sol/hpack
 --
--- hash: 4ed3e59f35aea005030050bbfd16be314909755544cd37730c559d8cb4072d32
+-- hash: f6541ab7b6fe521e1d4ed682019619a2fa89c3997c9d5f6551e1f663c6b1430b
 
 name:           mad-props
 version:        0.1.0.0
@@ -27,6 +27,7 @@ source-repository head
 
 library
   exposed-modules:
+      Examples.NQueens
       Examples.Sudoku
       Props
       Props.Internal.Backtracking

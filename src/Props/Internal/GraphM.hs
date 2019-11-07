@@ -5,7 +5,15 @@
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE FlexibleContexts #-}
 
-module Props.Internal.GraphM (GraphM, newPVar, link, solveGraph, readPVar, PVar) where
+module Props.Internal.GraphM
+    ( GraphM
+    , newPVar
+    , link
+    , solveGraph
+    , solveGraphAll
+    , readPVar
+    , PVar
+    ) where
 
 import Props.Internal.Graph
 import Props.Internal.Props
@@ -13,7 +21,6 @@ import Control.Monad.State
 import Control.Lens
 import Data.Typeable
 import Data.Dynamic
-import Data.Typeable.Lens
 import Data.MonoTraversable
 import Data.Maybe
 
@@ -35,13 +42,14 @@ link :: (Typeable g, Typeable (Element f)) => PVar s f -> PVar s g -> (Element f
 link (PVar from') (PVar to') f = GraphM $ do
     edgeBetween from' to' ?= toDyn f
 
-readPVar :: Typeable a => Graph s -> PVar s f -> a
+readPVar :: (Typeable (Element f)) => Graph s -> PVar s f -> Element f
 readPVar g (PVar v) =
     fromMaybe (error "readPVar called on unsolved graph")
     $ (g ^? valueAt v . folding unpackQuantum)
 
-unpackQuantum :: Typeable a => Quantum -> Maybe a
-unpackQuantum (Quantum o) = o ^? _Observed . _cast
+unpackQuantum :: (Typeable a) => Quantum -> Maybe a
+unpackQuantum (Quantum (Observed xs)) = cast xs
+unpackQuantum (Quantum _) = Nothing
 
 buildGraph :: GraphM s a -> IO (a, Graph s)
 buildGraph = flip runStateT emptyGraph . runGraphM
@@ -50,4 +58,10 @@ solveGraph :: GraphM s a -> IO (a, Graph s)
 solveGraph m = do
     (a, g) <- buildGraph m
     g' <- solve g
+    return (a, g')
+
+solveGraphAll :: GraphM s a -> IO (a, [Graph s])
+solveGraphAll m = do
+    (a, g) <- buildGraph m
+    g' <- solveAll g
     return (a, g')

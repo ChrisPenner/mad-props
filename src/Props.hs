@@ -1,7 +1,9 @@
 module Props
     (
       solveGraph
+    , solveGraphAll
     , GraphM
+    , Graph
     , PVar
     , newPVar
     , readPVar
@@ -13,4 +15,5 @@ module Props
     ) where
 
 import Props.Internal.GraphM
+import Props.Internal.Graph
 import Props.Internal.Links

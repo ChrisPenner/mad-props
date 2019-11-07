@@ -22,5 +22,8 @@ select :: (Foldable f, Functor f) => f a -> Backtrack a
 select fa = asum (pure <$> fa)
 {-# INLINE select #-}
 
-runWFC :: MT.MinTracker -> Backtrack a -> IO a
-runWFC mt (Backtrack wfc) = observeT . (flip evalStateT mt) $ wfc
+runBacktrack :: MT.MinTracker -> Backtrack a -> IO a
+runBacktrack mt (Backtrack wfc) = observeT . (flip evalStateT mt) $ wfc
+
+runBacktrackAll :: MT.MinTracker -> Backtrack a -> IO [a]
+runBacktrackAll mt (Backtrack wfc) = observeAllT . (flip evalStateT mt) $ wfc

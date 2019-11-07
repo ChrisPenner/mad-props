@@ -7,7 +7,7 @@
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE DeriveFunctor #-}
 {-# LANGUAGE DeriveTraversable #-}
-module Props.Internal.Props (solve, debugStepper) where
+module Props.Internal.Props (solve, debugStepper, solveAll) where
 
 import qualified Props.Internal.Graph as G
 import Control.Lens hiding (Context)
@@ -21,12 +21,22 @@ import Data.MonoTraversable
 
 solve :: Graph s
       -> IO (Graph s)
-solve graph' = runWFC mt (solve' graph')
+solve graph' = runBacktrack mt (solve' graph')
   where
     solve' gr = step gr >>= \case
         Left done -> return done
         Right gr' -> solve' gr'
     mt = initMinTracker graph'
+
+solveAll :: Graph s
+      -> IO [Graph s]
+solveAll graph' = runBacktrackAll mt (solve' graph')
+  where
+    solve' gr = step gr >>= \case
+        Left done -> return done
+        Right gr' -> solve' gr'
+    mt = initMinTracker graph'
+
 
 step :: Graph s
      -> Backtrack (Either (Graph s) (Graph s))
@@ -55,7 +65,7 @@ choicesOfQ' (Quantum (Unknown xs :: SuperPos f)) n g = do
 debugStepper :: (Graph s -> IO ())
              -> Graph s
              -> IO (Graph s)
-debugStepper stepHandler gr = runWFC mt (debugStepper' gr)
+debugStepper stepHandler gr = runBacktrack mt (debugStepper' gr)
   where
     mt = initMinTracker gr
     debugStepper' gr' = do
