@@ -10,7 +10,7 @@ module Props.Internal.GraphM
     , newPVar
     , link
     , solveGraph
-    , solveGraphAll
+    -- , solveGraphAll
     , readPVar
     , PVar
     ) where
@@ -25,7 +25,7 @@ import Data.MonoTraversable
 import Data.Maybe
 
 newtype GraphM s a =
-    GraphM { runGraphM :: StateT (Graph s) IO a
+    GraphM { runGraphM :: StateT Graph IO a
            }
     deriving newtype (Functor, Applicative, Monad, MonadIO)
 
@@ -42,7 +42,7 @@ link :: (Typeable g, Typeable (Element f)) => PVar s f -> PVar s g -> (Element f
 link (PVar from') (PVar to') f = GraphM $ do
     edgeBetween from' to' ?= toDyn f
 
-readPVar :: (Typeable (Element f)) => Graph s -> PVar s f -> Element f
+readPVar :: (Typeable (Element f)) => Graph -> PVar s f -> Element f
 readPVar g (PVar v) =
     fromMaybe (error "readPVar called on unsolved graph")
     $ (g ^? valueAt v . folding unpackQuantum)
@@ -51,17 +51,17 @@ unpackQuantum :: (Typeable a) => Quantum -> Maybe a
 unpackQuantum (Quantum (Observed xs)) = cast xs
 unpackQuantum (Quantum _) = Nothing
 
-buildGraph :: GraphM s a -> IO (a, Graph s)
+buildGraph :: GraphM s a -> IO (a, Graph)
 buildGraph = flip runStateT emptyGraph . runGraphM
 
-solveGraph :: GraphM s a -> IO (a, Graph s)
+solveGraph :: GraphM s a -> IO (a, Graph)
 solveGraph m = do
     (a, g) <- buildGraph m
     g' <- solve g
     return (a, g')
 
-solveGraphAll :: GraphM s a -> IO (a, [Graph s])
-solveGraphAll m = do
-    (a, g) <- buildGraph m
-    g' <- solveAll g
-    return (a, g')
+-- solveGraphAll :: GraphM s a -> IO (a, [Graph])
+-- solveGraphAll m = do
+--     (a, g) <- buildGraph m
+--     g' <- solveAll g
+--     return (a, g')

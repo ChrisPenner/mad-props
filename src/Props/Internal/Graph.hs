@@ -90,7 +90,7 @@ forceDyn d =
   where
     expected = show (typeOf (undefined :: a))
 
-data Graph s =
+data Graph =
     Graph { _vertices :: !(IM.IntMap (Quantum, IM.IntMap DFilter))
           , _vertexCount :: !Int
           } deriving Show
@@ -98,10 +98,10 @@ data Graph s =
 
 makeLenses ''Graph
 
-emptyGraph :: Graph s
+emptyGraph :: Graph
 emptyGraph = Graph mempty 0
 
-valueAt :: Vertex -> Lens' (Graph s) Quantum
+valueAt :: Vertex -> Lens' (Graph) Quantum
 valueAt (Vertex n) = singular (vertices . ix n . _1)
 {-# INLINE valueAt #-}
 
@@ -109,19 +109,19 @@ imAsList :: Iso' (IM.IntMap v ) [(Vertex', v)]
 imAsList = iso IM.toList IM.fromList
 {-# INLINABLE imAsList #-}
 
-edges :: Vertex -> Lens' (Graph s) (IM.IntMap DFilter)
+edges :: Vertex -> Lens' (Graph) (IM.IntMap DFilter)
 edges (Vertex n) = singular (vertices . ix n . _2)
 {-# INLINABLE edges #-}
 
-edgeBetween :: Vertex -> Vertex -> Lens' (Graph s) (Maybe DFilter)
+edgeBetween :: Vertex -> Vertex -> Lens' (Graph) (Maybe DFilter)
 edgeBetween from' (Vertex to') = edges from' . at to'
 {-# INLINABLE edgeBetween #-}
 
-values :: Traversal' (Graph s) (Vertex, Quantum)
+values :: Traversal' (Graph) (Vertex, Quantum)
 values = vertices . imAsList . traversed . alongside coerced _1
 {-# INLINABLE values #-}
 
-edgesFrom :: Vertex -> Traversal' (Graph s) (Vertex, DFilter)
+edgesFrom :: Vertex -> Traversal' (Graph) (Vertex, DFilter)
 edgesFrom n = edges n . imAsList . traversed . coerced
 {-# INLINE edgesFrom #-}
 

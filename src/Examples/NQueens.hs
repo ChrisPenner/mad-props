@@ -41,11 +41,11 @@ solve n = do
     putStrLn $ printSolution n results
 
 
-solveAll :: Int -> IO ()
-solveAll n = do
-    (vars, gs :: [Graph s]) <- solveGraphAll (setup n)
-    let results = zipWith (<$>) (readPVar <$> gs) (repeat vars)
-    traverse_ (putStrLn . printSolution n) results
+-- solveAll :: Int -> IO ()
+-- solveAll n = do
+--     (vars, gs :: [Graph s]) <- solveGraphAll (setup n)
+--     let results = zipWith (<$>) (readPVar <$> gs) (repeat vars)
+--     traverse_ (putStrLn . printSolution n) results
 
 
 chunksOf :: Int -> [a] -> [[a]]

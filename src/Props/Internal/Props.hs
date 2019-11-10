@@ -7,74 +7,48 @@
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE DeriveFunctor #-}
 {-# LANGUAGE DeriveTraversable #-}
-module Props.Internal.Props (solve, debugStepper, solveAll) where
+module Props.Internal.Props (solve, solveAll) where
 
 import qualified Props.Internal.Graph as G
 import Control.Lens hiding (Context)
 import Props.Internal.Backtracking
 import Props.Internal.Graph
-import Control.Monad.IO.Class
 import qualified Props.Internal.MinTracker as MT
-import Control.Monad
 import Data.Dynamic
 import Data.MonoTraversable
+import Data.Foldable
+import Control.Monad.State
 
-solve :: Graph s
-      -> IO (Graph s)
-solve graph' = runBacktrack mt (solve' graph')
-  where
-    solve' gr = step gr >>= \case
-        Left done -> return done
-        Right gr' -> solve' gr'
-    mt = initMinTracker graph'
+solve :: Graph
+      -> IO Graph
+solve graph' = snd <$> runBacktrack (initMinTracker graph') graph' solve'
 
-solveAll :: Graph s
-      -> IO [Graph s]
-solveAll graph' = runBacktrackAll mt (solve' graph')
-  where
-    solve' gr = step gr >>= \case
-        Left done -> return done
-        Right gr' -> solve' gr'
-    mt = initMinTracker graph'
+solveAll :: Graph -> IO [Graph]
+solveAll graph' = fmap snd <$> runBacktrackAll (initMinTracker graph') graph' solve'
 
-
-step :: Graph s
-     -> Backtrack (Either (Graph s) (Graph s))
-step graph' = MT.popMinNode >>= \case
-    Nothing -> return $ Left graph'
-    Just n  -> Right <$> collapse n graph'
-{-# INLINE step #-}
+solve' :: Backtrack ()
+solve' = MT.popMinNode >>= \case
+    Nothing -> return ()
+    Just n  -> collapse n *> solve'
+{-# INLINABLE solve' #-}
 
 collapse :: G.Vertex
-         -> Graph s
-         -> Backtrack (Graph s)
-collapse n g = do
-    let focused = g ^?! valueAt n
-    choicesOfQ' focused n g
+         -> Backtrack ()
+collapse n = do
+    focused <- use (singular (graph . valueAt n))
+    choicesOfQ' focused n
 {-# INLINE collapse #-}
 
-choicesOfQ' :: Quantum -> Vertex -> Graph s -> Backtrack (Graph s)
-choicesOfQ' (Quantum (Observed{})) _ _ = error "Can't collapse an already collapsed node!"
-choicesOfQ' (Quantum (Unknown xs :: SuperPos f)) n g = do
+choicesOfQ' :: Quantum -> Vertex -> Backtrack ()
+choicesOfQ' (Quantum (Observed{})) _ = error "Can't collapse an already collapsed node!"
+choicesOfQ' (Quantum (Unknown xs :: SuperPos f)) n = do
     let options = otoList xs
-    choice <- select options
-    let picked = g & valueAt n . superPos .~ (Observed choice :: SuperPos f)
-    propagate (n, toDyn choice) picked
+    choice <- rselect options
+    graph . valueAt n . superPos .= (Observed choice :: SuperPos f)
+    propagate (n, toDyn choice)
 {-# INLINE choicesOfQ' #-}
 
-debugStepper :: (Graph s -> IO ())
-             -> Graph s
-             -> IO (Graph s)
-debugStepper stepHandler gr = runBacktrack mt (debugStepper' gr)
-  where
-    mt = initMinTracker gr
-    debugStepper' gr' = do
-      liftIO $ stepHandler gr'
-      step gr' >>= \case
-          Left done -> return done
-          Right gr'' -> debugStepper' gr''
-
-initMinTracker :: Graph s -> MT.MinTracker
+initMinTracker :: Graph -> MT.MinTracker
 initMinTracker graph' = MT.fromList (allEntropies ^.. traversed . below _Just)
     where
       allEntropies :: [(G.Vertex, Maybe Int)]
@@ -82,23 +56,25 @@ initMinTracker graph' = MT.fromList (allEntropies ^.. traversed . below _Just)
       allNodes :: [(G.Vertex, Quantum)]
       allNodes =  graph' ^.. values
 
-
-propagate :: forall s. (Vertex, DChoice) -> Graph s -> Backtrack (Graph s)
-propagate (from', choice) g = foldM step' g allEdges
+propagate :: (Vertex, DChoice) -> Backtrack ()
+propagate (from', choice) = do
+    allEdges <- gets (toListOf (graph . edgesFrom from'))
+    for_ allEdges step'
     where
-      allEdges :: [(Vertex, DFilter)]
-      allEdges = g ^.. edgesFrom from'
-      step' :: Graph s -> (Vertex, DFilter) -> Backtrack (Graph s)
-      step' g' e = propagateSingle choice e g'
+      step' :: (Vertex, DFilter) -> Backtrack ()
+      step' e = propagateSingle choice e
 {-# INLINE propagate #-}
 
-propagateSingle :: DChoice -> (Vertex, DFilter) -> Graph s -> Backtrack (Graph s)
-propagateSingle v (to', dfilter) g = g & valueAt to' %%~ alterQ
+propagateSingle :: DChoice -> (Vertex, DFilter) -> Backtrack ()
+propagateSingle v (to', dfilter) = do
+    graph . valueAt to' %%= alterQ >>= \case
+      Nothing -> return ()
+      Just newEnt -> MT.setNodeEntropy to' newEnt
+    return ()
   where
-    alterQ :: Quantum -> Backtrack Quantum
+    alterQ :: Quantum -> (Maybe Int, Quantum)
     alterQ (Quantum (Unknown xs :: SuperPos f)) = do
         let filteredDown = (forceDyn $ dynApp (dynApp dfilter v) (toDyn xs) :: f)
-        MT.setNodeEntropy to' (olength filteredDown)
-        return $ Quantum (Unknown filteredDown)
-    alterQ q = return q
+         in (Just $ olength filteredDown, Quantum (Unknown filteredDown))
+    alterQ q = (Nothing, q)
 {-# INLINE propagateSingle #-}

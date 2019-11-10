@@ -11,12 +11,12 @@ import Props.Internal.Graph
 data MinTracker =
     MinTracker { _minQueue :: (PSQ.IntPSQ Int ()) }
 
-makeLenses ''MinTracker
+makeClassy ''MinTracker
 
 empty :: MinTracker
 empty = MinTracker PSQ.empty
 
-popMinNode :: MonadState MinTracker m => m (Maybe Vertex)
+popMinNode :: (HasMinTracker e, MonadState e m) => m (Maybe Vertex)
 popMinNode = do
     uses minQueue PSQ.minView >>= \case
       Nothing -> return Nothing
@@ -25,7 +25,7 @@ popMinNode = do
           return $ Just (Vertex n)
 {-# INLINE popMinNode #-}
 
-setNodeEntropy :: MonadState MinTracker m => Vertex -> Int -> m ()
+setNodeEntropy :: (HasMinTracker e, MonadState e m) => Vertex -> Int -> m ()
 setNodeEntropy (Vertex nd) ent = do
     minQueue %= snd . PSQ.insertView nd ent ()
 {-# INLINE setNodeEntropy #-}
