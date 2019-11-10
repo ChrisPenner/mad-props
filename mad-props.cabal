@@ -4,7 +4,7 @@ cabal-version: 1.12
 --
 -- see: https://github.com/sol/hpack
 --
--- hash: f6541ab7b6fe521e1d4ed682019619a2fa89c3997c9d5f6551e1f663c6b1430b
+-- hash: 2122b85aa0f20e4df7b166ee60b13b7ee1d1f7d7fe99dca4c0582fa348bcf750
 
 name:           mad-props
 version:        0.1.0.0
@@ -36,6 +36,12 @@ library
       Props.Internal.Links
       Props.Internal.MinTracker
       Props.Internal.Props
+      ST.Internal.Backtracking
+      ST.Internal.Graph
+      ST.Internal.GraphM
+      ST.Internal.Links
+      ST.Internal.MinTracker
+      ST.Internal.Props
   other-modules:
       Paths_mad_props
   hs-source-dirs:
