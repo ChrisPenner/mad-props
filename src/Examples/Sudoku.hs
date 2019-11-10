@@ -169,6 +169,9 @@ solveAll :: IO ()
 solveAll = do
     traverse_ solvePuzzle (take 5 puzzles)
 
+hardLogic :: IO ()
+hardLogic = solvePuzzle hardestBoard
+
 -- test :: IO ()
 -- test = do
 --     result <- solvePuzzle hardestBoard

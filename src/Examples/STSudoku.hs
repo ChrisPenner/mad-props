@@ -106,11 +106,11 @@ setup board = do
 solvePuzzle :: [String] -> IO ()
 solvePuzzle puz = do
     vars <- solveGraph (setup $ txtToBoard puz)
-    results <- (traverse . traverse) (readPVar) vars
+    results <- (traverse . traverse) readPVar vars
     putStrLn $ boardToText results
 
-test :: IO ()
-test = do solvePuzzle hardestBoard
+hardST :: IO ()
+hardST = do solvePuzzle hardestBoard
 
 -- test :: IO ()
 -- test = do

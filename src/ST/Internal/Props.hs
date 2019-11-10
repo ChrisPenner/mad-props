@@ -76,7 +76,7 @@ initMinTracker g = do
       allNodes =  g ^.. vertices
 
 
-propagate :: forall s. (Vertex, DChoice) -> Backtrack ()
+propagate :: (Vertex, DChoice) -> Backtrack ()
 propagate (from', choice) = do
     allEdges <- edgesFrom from'
     for_ allEdges step'

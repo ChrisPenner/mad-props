@@ -46,7 +46,6 @@ import Data.Typeable
 import Data.Typeable.Lens
 import Data.MonoTraversable
 import Data.IORef
-import Control.Arrow ((&&&))
 import Data.Function (on)
 import Control.Applicative
 

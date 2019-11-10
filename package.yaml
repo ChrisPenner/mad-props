@@ -32,6 +32,8 @@ dependencies:
 - psqueues
 - logict
 - mono-traversable
+- unliftio
+- async
 
 library:
   source-dirs: src
