@@ -102,7 +102,8 @@ propagateSingle :: DChoice -> (Vertex, DFilter) -> Graph s -> Backtrack (Graph s
 propagateSingle choice (to', dfilter) g = do
     modifyQuantum to' alterQ >>= \case
       Nothing -> return g
-      Just newEntropy -> MT.setNodeEntropy to' newEntropy *> return g
+      Just newEntropy -> do
+          MT.setNodeEntropy to' newEntropy *> return g
   where
     alterQ :: Quantum -> (Quantum, Maybe Int)
     alterQ (Quantum (Unknown xs :: SuperPos f)) = do

@@ -47,6 +47,8 @@ import Data.Typeable.Lens
 import Data.MonoTraversable
 import Data.IORef
 import Control.Arrow ((&&&))
+import Data.Function (on)
+import Control.Applicative
 
 type DFilter = Dynamic
 type DChoice = Dynamic
@@ -73,8 +75,16 @@ data Vertex = Vertex { _vertexID :: Int
                      , _vertexQuantum ::  IORef Quantum
                      , _vertexEdges :: IORef [(Vertex, DFilter)]
                      }
+
 instance Show Vertex where
-  show (Vertex id _ _) = show "(Vertex " <> show id <> ")"
+  show (Vertex id' _ _) = show "(Vertex " <> show id' <> ")"
+
+instance Eq Vertex where
+  (==) = (==) `on` _vertexID
+
+instance Ord Vertex where
+  (<=) = (<=) `on` _vertexID
+
 makeLenses ''Vertex
 
 data Graph s =
@@ -115,11 +125,20 @@ getQuantum :: MonadIO m => Vertex -> m Quantum
 getQuantum v = liftIO . readIORef $ v^.vertexQuantum
 
 -- returns altered quantum
-modifyQuantum :: MonadIO m => Vertex -> (Quantum -> (Quantum, a)) -> m a
-modifyQuantum v f = liftIO $ atomicModifyIORef' (v ^. vertexQuantum) f
+modifyQuantum :: (MonadIO m, Alternative m) => Vertex -> (Quantum -> (Quantum, a)) -> m a
+modifyQuantum v f = do
+    (a, before) <- liftIO $ atomicModifyIORef' (v ^. vertexQuantum)
+      $ \q ->
+          let (newQ, a) = f q
+           in (newQ, (a, q))
+    return a <|> (liftIO (writeIORef (v^.vertexQuantum) before) *> empty)
 
 edgesFrom :: MonadIO m => Vertex -> m [(Vertex, DFilter)]
 edgesFrom v = liftIO . readIORef $ v^.vertexEdges
+
+addEdge :: MonadIO m => Vertex -> Vertex -> DFilter -> m ()
+addEdge from' to' dfilter = do
+    liftIO $ modifyIORef (from'^.vertexEdges) ((to', dfilter):)
 
 setQuantum :: MonadIO m => Vertex -> Quantum -> m ()
 setQuantum v q = liftIO $ writeIORef (v^.vertexQuantum) q

@@ -22,7 +22,7 @@ import Control.Lens
 import Data.Typeable
 import Data.Dynamic
 import Data.MonoTraversable
-import Data.Maybe
+import Data.IORef
 
 newtype GraphM s a =
     GraphM { runGraphM :: StateT (Graph s) IO a
@@ -34,18 +34,21 @@ data PVar s f = PVar Vertex
 
 newPVar :: (MonoFoldable f, Typeable f, Typeable (Element f)) => f -> GraphM s (PVar s f)
 newPVar xs = GraphM $ do
-    v <- vertexCount <+= 1
-    vertices . at v ?= (Quantum (Unknown xs), mempty)
-    return (PVar (Vertex v))
+    vID <- vertexCount <+= 1
+    v <- liftIO $ Vertex vID <$> newIORef (Quantum (Unknown xs)) <*> newIORef mempty
+    verticesMap . at vID ?= v
+    return (PVar v)
 
 link :: (Typeable g, Typeable (Element f)) => PVar s f -> PVar s g -> (Element f -> g -> g) -> GraphM s ()
 link (PVar from') (PVar to') f = GraphM $ do
-    edgeBetween from' to' ?= toDyn f
+    addEdge from' to' (toDyn f)
 
-readPVar :: (Typeable (Element f)) => Graph s -> PVar s f -> Element f
-readPVar g (PVar v) =
-    fromMaybe (error "readPVar called on unsolved graph")
-    $ (g ^? valueAt v . folding unpackQuantum)
+readPVar :: (MonadIO m, Typeable (Element f)) => PVar s f -> m (Element f)
+readPVar (PVar v) = do
+    q <- getQuantum v
+    case unpackQuantum q of
+        Nothing -> (error "readPVar called on unsolved graph")
+        Just r -> return r
 
 unpackQuantum :: (Typeable a) => Quantum -> Maybe a
 unpackQuantum (Quantum (Observed xs)) = cast xs
