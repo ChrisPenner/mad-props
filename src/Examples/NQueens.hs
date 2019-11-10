@@ -1,6 +1,6 @@
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE ViewPatterns #-}
-module NQueens where
+module Examples.NQueens where
 
 import qualified Data.Set as S
 import Props
