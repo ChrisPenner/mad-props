@@ -24,7 +24,7 @@ killSquare (x, y) (x', y')
   | x + y == x' + y' = False
   | otherwise = True
 
-setup :: Int -> GraphM s [PVar s (S.Set Coord)]
+setup :: Int -> GraphM [PVar (S.Set Coord)]
 setup n = do
     -- All possible grid locations
     let locations = S.fromList [(x, y) | x <- [0..n - 1], y <- [0..n - 1]]
@@ -36,10 +36,8 @@ setup n = do
 
 solve :: Int -> IO ()
 solve n = do
-    (vars, g) <- solveGraph (setup n)
-    let results = readPVar g <$> vars
+    results <- solveGraph' (setup n)
     putStrLn $ printSolution n results
-
 
 -- solveAll :: Int -> IO ()
 -- solveAll n = do

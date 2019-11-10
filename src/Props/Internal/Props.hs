@@ -43,7 +43,7 @@ choicesOfQ' :: Quantum -> Vertex -> Backtrack ()
 choicesOfQ' (Quantum (Observed{})) _ = error "Can't collapse an already collapsed node!"
 choicesOfQ' (Quantum (Unknown xs :: SuperPos f)) n = do
     let options = otoList xs
-    choice <- rselect options
+    choice <- select options
     graph . valueAt n . superPos .= (Observed choice :: SuperPos f)
     propagate (n, toDyn choice)
 {-# INLINE choicesOfQ' #-}

@@ -10,6 +10,7 @@ import Text.RawString.QQ (r)
 import qualified Data.Text as T
 import qualified Data.Set as S
 import Data.List
+import Data.Functor.Compose
 
 txtToBoard :: [String] -> [[S.Set Int]]
 txtToBoard = (fmap . fmap) possibilities
@@ -129,7 +130,7 @@ chunksOf n = unfoldr go
     go xs = Just (take n xs, drop n xs)
 
 
-linkBoard :: [[PVar s (S.Set Int)]] -> GraphM s ()
+linkBoard :: [[PVar (S.Set Int)]] -> GraphM ()
 linkBoard xs = do
     let rows = rowsOf xs
     let cols = colsOf xs
@@ -141,7 +142,7 @@ linkBoard xs = do
     disj :: Ord a => a -> S.Set a -> S.Set a
     disj x xs = S.delete x xs
 
-setup :: [[S.Set Int]]-> GraphM s [[PVar s (S.Set Int)]]
+setup :: [[S.Set Int]]-> GraphM [[PVar (S.Set Int)]]
 setup board = do
     vars <- (traverse . traverse) newPVar board
     linkBoard vars
@@ -149,8 +150,7 @@ setup board = do
 
 solvePuzzle :: [String] -> IO ()
 solvePuzzle puz = do
-    (vars, g) <- solveGraph (setup $ txtToBoard puz)
-    let results = (fmap . fmap) (readPVar g) vars
+    Compose results <- solveGraph' (Compose <$> setup (txtToBoard puz))
     putStrLn $ boardToText results
 
 solveAll :: IO ()

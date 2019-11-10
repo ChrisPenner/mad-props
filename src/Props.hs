@@ -1,7 +1,8 @@
 module Props
     (
       solveGraph
-    -- , solveGraphAll
+    , solveGraph'
+    , solveGraphAll
     , GraphM
     , Graph
     , PVar
