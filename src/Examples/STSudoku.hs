@@ -105,7 +105,7 @@ setup board = do
 
 solvePuzzle :: [String] -> IO ()
 solvePuzzle puz = do
-    (vars, _) <- solveGraph (setup $ txtToBoard puz)
+    vars <- solveGraph (setup $ txtToBoard puz)
     results <- (traverse . traverse) (readPVar) vars
     putStrLn $ boardToText results
 

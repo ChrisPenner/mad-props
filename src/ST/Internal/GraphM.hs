@@ -10,7 +10,7 @@ module ST.Internal.GraphM
     , newPVar
     , link
     , solveGraph
-    , solveGraphAll
+    -- , solveGraphAll
     , readPVar
     , PVar
     ) where
@@ -57,14 +57,14 @@ unpackQuantum (Quantum _) = Nothing
 buildGraph :: GraphM s a -> IO (a, Graph s)
 buildGraph = flip runStateT emptyGraph . runGraphM
 
-solveGraph :: GraphM s a -> IO (a, Graph s)
+solveGraph :: GraphM s a -> IO a
 solveGraph m = do
     (a, g) <- buildGraph m
-    g' <- solve g
-    return (a, g')
+    solve g
+    return a
 
-solveGraphAll :: GraphM s a -> IO (a, [Graph s])
-solveGraphAll m = do
-    (a, g) <- buildGraph m
-    g' <- solveAll g
-    return (a, g')
+-- solveGraphAll :: GraphM s a -> IO (a, [Graph s])
+-- solveGraphAll m = do
+--     (a, g) <- buildGraph m
+--     g' <- solveAll g
+--     return (a, g')
