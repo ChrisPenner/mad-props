@@ -85,37 +85,6 @@ puzzles = fmap toPuzzle . tail . T.lines $ [r|
     toPuzzle :: T.Text -> [String]
     toPuzzle = fmap T.unpack . T.chunksOf 9
 
-ts :: [[Int]]
-ts = [[1,2,3,4,5,6,7,8,9]
-     ,[11,12,13,14,15,16,17,18,19]
-     ,[21,22,23,24,25,26,27,28,29]
-     ,[31,32,33,34,35,36,37,38,39]
-     ,[41,42,43,44,45,46,47,48,49]
-     ,[51,52,53,54,55,56,57,58,59]
-     ,[61,62,63,64,65,66,67,68,69]
-     ,[71,72,73,74,75,76,77,78,79]
-     ,[81,82,83,84,85,86,87,88,89]
-     ]
-
--- ts' :: [[[ Int ]]]
--- ts' = [ [[ 1, 2, 3], [ 4, 5, 6], [ 7, 8, 9]]
---       , [[11,12,13], [14,15,16], [17,18,19]]
---       , [[21,22,23], [24,25,26], [27,28,29]]
---       , [[31,32,33], [34,35,36], [37,38,39]]
---       , [[41,42,43], [44,45,46], [47,48,49]]
---       , [[51,52,53], [54,55,56], [57,58,59]]
---       , [[61,62,63], [64,65,66], [67,68,69]]
---       , [[71,72,73], [74,75,76], [77,78,79]]
---       , [[81,82,83], [84,85,86], [87,88,89]]
---       ]
-
--- rowsOf' :: [[[Int]]] -> [[Int]]
--- rowsOf' = fmap concat
--- colsOf' :: [[[Int]]] -> [[Int]]
--- colsOf' = concat . transpose
--- blocksOf' :: [[[Int]]] -> [[Int]]
--- blocksOf' = chunksOf 9 . concat . concat . transpose
-
 rowsOf :: [[a]] -> [[a]]
 rowsOf = id
 colsOf :: [[a]] -> [[a]]
@@ -130,7 +99,7 @@ chunksOf n = unfoldr go
     go xs = Just (take n xs, drop n xs)
 
 
-linkBoard :: [[PVar (S.Set Int)]] -> GraphM ()
+linkBoard :: [[PVar (S.Set Int)]] -> Prop ()
 linkBoard xs = do
     let rows = rowsOf xs
     let cols = colsOf xs
@@ -142,20 +111,20 @@ linkBoard xs = do
     disj :: Ord a => a -> S.Set a -> S.Set a
     disj x xs = S.delete x xs
 
-setup :: [[S.Set Int]]-> GraphM [[PVar (S.Set Int)]]
+setup :: [[S.Set Int]]-> Prop (Compose [] [] (PVar (S.Set Int)))
 setup board = do
     vars <- (traverse . traverse) newPVar board
     linkBoard vars
-    return vars
+    return (Compose vars)
 
 solvePuzzle :: [String] -> IO ()
 solvePuzzle puz = do
-    Compose results <- solveGraph' (Compose <$> setup (txtToBoard puz))
+    let Compose results = solve $ setup (txtToBoard puz)
     putStrLn $ boardToText results
 
-solveAll :: IO ()
-solveAll = do
-    traverse_ solvePuzzle (take 5 puzzles)
+solveAllPuzzles :: IO ()
+solveAllPuzzles = do
+    traverse_ solvePuzzle puzzles
 
 hardLogic :: IO ()
 hardLogic = solvePuzzle hardestBoard

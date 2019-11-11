@@ -4,7 +4,7 @@ cabal-version: 1.12
 --
 -- see: https://github.com/sol/hpack
 --
--- hash: f6541ab7b6fe521e1d4ed682019619a2fa89c3997c9d5f6551e1f663c6b1430b
+-- hash: 46e7ca301e6661187dde91f6106499a08d39dcfbdf7f8714a76f487d7bc1a9b5
 
 name:           mad-props
 version:        0.1.0.0
@@ -32,10 +32,10 @@ library
       Props
       Props.Internal.Backtracking
       Props.Internal.Graph
-      Props.Internal.GraphM
       Props.Internal.Links
       Props.Internal.MinTracker
       Props.Internal.Props
+      Props.Internal.PropT
   other-modules:
       Paths_mad_props
   hs-source-dirs:
@@ -50,6 +50,7 @@ library
     , mono-traversable
     , mtl
     , psqueues
+    , random
     , random-shuffle
     , raw-strings-qq
     , text
@@ -74,6 +75,7 @@ executable sudoku-exe
     , mono-traversable
     , mtl
     , psqueues
+    , random
     , random-shuffle
     , raw-strings-qq
     , text

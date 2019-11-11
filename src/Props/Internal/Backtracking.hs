@@ -13,10 +13,12 @@ import Props.Internal.Graph
 import qualified Props.Internal.MinTracker as MT
 import Control.Lens
 import Data.Bifunctor
+import System.Random
+import Control.Monad.Random
 
 -- Note; State on the OUTSIDE means it WILL backtrack state.
-newtype Backtrack a = Backtrack (StateT BState (LogicT IO) a)
-    deriving newtype (Functor, Alternative, Applicative, Monad, MonadState BState, MonadIO)
+newtype Backtrack a = Backtrack (StateT BState (RandT StdGen Logic) a)
+    deriving newtype (Functor, Alternative, Applicative, Monad, MonadState BState, MonadRandom)
 
 data BState =
     BState { _bsMinTracker :: MT.MinTracker
@@ -28,15 +30,25 @@ instance MT.HasMinTracker BState where
   minTracker = bsMinTracker
 
 rselect :: (Foldable f, Functor f) => f a -> Backtrack a
-rselect (toList -> fa) = liftIO (shuffleM fa) >>= select
+rselect (toList -> fa) = (shuffleM fa) >>= select
 {-# INLINE rselect #-}
 
 select :: (Foldable f, Functor f) => f a -> Backtrack a
 select fa = asum (pure <$> fa)
 {-# INLINE select #-}
 
-runBacktrack :: MT.MinTracker -> Graph -> Backtrack a -> IO (a, Graph)
-runBacktrack mt g (Backtrack wfc) = fmap (second _graph) . observeT . (flip runStateT (BState mt g)) $ wfc
+runBacktrack :: MT.MinTracker -> Graph -> Backtrack a -> (a, Graph)
+runBacktrack mt g (Backtrack m) =
+    second _graph
+    . observe
+    . flip evalRandT (mkStdGen 0)
+    . flip runStateT (BState mt g)
+    $ m
 
-runBacktrackAll :: MT.MinTracker -> Graph -> Backtrack a -> IO [(a, Graph)]
-runBacktrackAll mt g (Backtrack wfc) = observeAllT . fmap (second _graph) . (flip runStateT (BState mt g)) $ wfc
+runBacktrackAll :: MT.MinTracker -> Graph -> Backtrack a -> [(a, Graph)]
+runBacktrackAll mt g (Backtrack m) =
+    fmap (second _graph)
+    . observeAll
+    . flip evalRandT (mkStdGen 0)
+    . flip runStateT (BState mt g)
+    $ m

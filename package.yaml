@@ -32,6 +32,7 @@ dependencies:
 - psqueues
 - logict
 - mono-traversable
+- random
 
 library:
   source-dirs: src

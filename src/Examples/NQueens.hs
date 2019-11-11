@@ -24,7 +24,7 @@ killSquare (x, y) (x', y')
   | x + y == x' + y' = False
   | otherwise = True
 
-setup :: Int -> GraphM [PVar (S.Set Coord)]
+setup :: Int -> Prop [PVar (S.Set Coord)]
 setup n = do
     -- All possible grid locations
     let locations = S.fromList [(x, y) | x <- [0..n - 1], y <- [0..n - 1]]
@@ -34,9 +34,9 @@ setup n = do
     for_ queenPairs $ \(a, b) -> link a b killSquares
     return queenVars
 
-solve :: Int -> IO ()
-solve n = do
-    results <- solveGraph' (setup n)
+nQuuens :: Int -> IO ()
+nQuuens n = do
+    let results = solve (setup n)
     putStrLn $ printSolution n results
 
 -- solveAll :: Int -> IO ()

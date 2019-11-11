@@ -1,9 +1,9 @@
 module Main where
 
 import Examples.Sudoku
--- import Examples.NQueens as NQ
+import Examples.NQueens as NQ
 
 main :: IO ()
--- main = solveAll
+main = NQ.nQueens 8
 -- main = NQ.solve 12
-main = hardLogic
+-- main = hardLogic

@@ -20,11 +20,11 @@ import Data.Foldable
 import Control.Monad.State
 
 solve :: Graph
-      -> IO Graph
-solve graph' = snd <$> runBacktrack (initMinTracker graph') graph' solve'
+      -> Graph
+solve graph' = snd $ runBacktrack (initMinTracker graph') graph' solve'
 
-solveAll :: Graph -> IO [Graph]
-solveAll graph' = fmap snd <$> runBacktrackAll (initMinTracker graph') graph' solve'
+solveAll :: Graph -> [Graph]
+solveAll graph' = snd <$> runBacktrackAll (initMinTracker graph') graph' solve'
 
 solve' :: Backtrack ()
 solve' = MT.popMinNode >>= \case

@@ -1,13 +1,11 @@
 module Props
     (
-      solveGraph
-    , solveGraph'
-    , solveGraphAll
-    , GraphM
-    , Graph
+      solve
+    , solveAll
+    , Prop
+    , PropT
     , PVar
     , newPVar
-    , readPVar
     , link
 
     , disjoint
@@ -15,6 +13,5 @@ module Props
     , require
     ) where
 
-import Props.Internal.GraphM
-import Props.Internal.Graph
+import Props.Internal.PropT
 import Props.Internal.Links
