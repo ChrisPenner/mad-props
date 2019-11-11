@@ -32,7 +32,7 @@ hardestProblem = tail . lines $ [r|
 .9....4..|]
 ```
 
-A Sudoku is a constraint satisfaction problem, the "constraints" are that each of the numbers 1-9 are represented in each row, column and 3x3 grid. `Props` allows us to create `PVars` a.k.a. Propagator Variables. `PVars` represent a piece of information in our problem which is 'unknown' but has some relationship with other variables. To convert Sudoku into a propagator problem we can make a new `PVar` for each cell, the `PVar` will contain either all possible values from 1-9; or ONLY the value which is specified in the puzzle. We use a Set to indicate the possibilities, but you can really use almost any container you like inside a `PVar`.
+Sudoku is a constraint satisfaction problem, the "constraints" are that each of the numbers 1-9 are represented in each row, column and 3x3 grid. 
 
 ```haskell
 txtToBoard :: [String] -> [[S.Set Int]]
@@ -46,9 +46,9 @@ hardestBoard :: [[S.Set Int]]
 hardestBoard = txtToBoard hardestProblem
 ```
 
-This function takes our problem and converts it into a nested grid of variables! Each variable 'contains' all the possibilities for that square. Now we need to 'constrain' the problem!
+We've now got our problem as a list of rows of 'cells', each cell is a set containing the possible numbers for that cell.
 
-We can then introduce the constraints of Sudoku as relations between these `PVars`. The cells in each 'quadrant' (i.e. square, row, or column) are each 'related' to one other in the sense that **their values must be disjoint**. No two cells in each quadrant can have the same value. We'll quickly write some shoddy functions to extract the lists of "regions" we need to worry about from our board. Getting the **rows** and **columns** is easy, getting the square **blocks** is a bit more tricky, the implementation here really doesn't matter.
+We need to express the constraint that each 'region' (i.e. row, column and 'block') can only have one of each number in them. We'll write some helper function for collecting the regions of the puzzle:
 
 ```haskell
 rowsOf, colsOf, blocksOf :: [[a]] -> [[a]]
@@ -57,7 +57,9 @@ colsOf = transpose
 blocksOf = chunksOf 9 . concat . concat . fmap transpose . chunksOf 3 . transpose
 ```
 
-Now we can worry about telling the system about our constraints. We'll map over each region relating every variable to every other one. This function assumes we've replaced the `Set a`'s in our board representation with the appropriate `PVar`'s, we'll actually do that soon, but for now you can look the other way.
+Now we can worry about telling the system about our constraints. 
+
+We can now introduce the constraints of Sudoku as relations between cells. The cells in each region are related to one other in the sense that **their values must be disjoint**. No two cells in each quadrant can have the same value. 
 
 ```haskell
 -- | Given a board of 'PVar's, link the appropriate cells with 'disjoint' constraints
@@ -74,10 +76,15 @@ linkBoardCells xs = do
     disj x xs = S.delete x xs
 ```
 
+This function introduces a few new types, namely `Prop` and `Pvar`. We'll show how `PVar`s are actually created soon, but the gist of this function is that we map over each 'region' and relate every variable to every other one.
 
-Now every pair of `PVars` in each region is linked by the `disj` relation.
+`Prop` is a monad which allows us to create and link `PVar`s together. It keeps track of the constraints on all of our variables and will eventually build a graph that the library uses to solve the problem.
 
-`constrain` accepts two `PVar`s and a function, the function takes a 'choice' from the first variable and uses it to constrain the 'options' from the second. In this case, if the first variable is fixed to a specific value we 'propagate' by removing all matching values from the other variable's pool, you can see the implementation of the `disj` helper above. The information about the 'link' is stored inside the `Prop` monad.
+We call the `constrain` function to state that no cell pairing within a region should have the same number.
+
+`constrain` accepts two `PVar`s and a function, the function takes a 'choice' from the first variable and uses it to constrain the 'options' from the second. In this case, if the first variable is fixed to a specific value we 'propagate' by removing all matching values from the other variable's pool, you can see the implementation of the `disj` helper above. The information about this constraint is stored inside the `Prop` monad.
+
+Set disjunction is symmetric, propagators in general are not, so we'll need to 'constrain' in each direction. Luckily our loop will process each pair twice, so we'll run this once in each direction.
 
 Here's the real signature in case you're curious: 
 
@@ -87,9 +94,9 @@ constrain :: (Monad m, Typeable g, Typeable (Element f))
           -> PropT m ()
 ```
 
-Set disjunction is symmetric, propagators in general are not, so we'll need to 'constrain' in each direction. Luckily our loop will process each pair twice, so we'll run this once in each direction.
+We're almost there; we've got a way to constrain a board of `PVar`s, but we need to make the board of `PVar`s somehow!
 
-Now we can link our parts together:
+This is pretty easy; we can make a `PVar` by calling `newPVar` and passing it a container full of possible options the variable could be. We'll convert our `[[S.Set Int]]` into `[[PVar (S.Set Int)]]` by traversing the structure using `newPVar`.
 
 ```haskell
 -- | Given a sudoku board, apply the necessary constraints and return a result board of
@@ -101,7 +108,9 @@ constrainBoard board = do
     return (Compose vars)
 ```
 
-We accept a sudoku "board", we replace each `Set Int` with a `PVar (S.Set Int)` using `newPVar` which creates a propagator from a set of possible values. This is a propagator variable which has a `Set` of Ints which the variable could take. We then link all the board's cells together using constraints, and lastly return a `Functor` full of `PVar`s; which will later be replaced with actual values. `Compose` converts a list of lists into a single functor over the nested elements.
+Now we can accept a board, constrain all the variables together! We return `Compose [] [] (PVar (S.Set Int))` which might seem a bit strange, but you'll see why in a second!
+
+Here's the signature of `newPVar` in case you're curious:
 
 ```haskell
 newPVar :: (Monad m, MonoFoldable f, Typeable f, Typeable (Element f)) 
@@ -127,6 +136,8 @@ Here are some types first, then we'll try it out:
 solve :: (Functor f, Typeable (Element g)) 
       => Prop (f (PVar g)) -> Maybe (f (Element g))
 ```
+
+You can return any Functor from your setup `Prop` action. The `solve` function will map over it and replace all the `PVar`s inside with the solved values.
 
 We can plug in our hardest sudoku and after a second or two we'll print out the answer!
 
