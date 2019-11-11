@@ -1,5 +1,7 @@
 # Mad Props
 
+[Hackage & Docs](http://hackage.haskell.org/package/mad-props)
+
 Mad props is a simple generalized propagator framework. This means it's pretty good at expressing and solving generalized [constraint satisfaction problems](https://en.wikipedia.org/wiki/Constraint_satisfaction_problem).
 
 There are many other constraint solvers out there, probably most of them are faster than this one, but for those who like the comfort and type-safety of working in Haskell, I've gotcha covered.
