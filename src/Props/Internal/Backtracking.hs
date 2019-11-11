@@ -15,6 +15,7 @@ import Control.Lens
 import Data.Bifunctor
 import System.Random
 import Control.Monad.Random
+import Data.Maybe
 
 -- Note; State on the OUTSIDE means it WILL backtrack state.
 newtype Backtrack a = Backtrack (StateT BState (RandT StdGen Logic) a)
@@ -37,10 +38,11 @@ select :: (Foldable f, Functor f) => f a -> Backtrack a
 select fa = asum (pure <$> fa)
 {-# INLINE select #-}
 
-runBacktrack :: MT.MinTracker -> Graph -> Backtrack a -> (a, Graph)
+runBacktrack :: MT.MinTracker -> Graph -> Backtrack a -> Maybe (a, Graph)
 runBacktrack mt g (Backtrack m) =
-    second _graph
-    . observe
+    fmap (second _graph)
+    . listToMaybe
+    . observeMany 1
     . flip evalRandT (mkStdGen 0)
     . flip runStateT (BState mt g)
     $ m

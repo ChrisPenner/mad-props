@@ -2,7 +2,9 @@
 
 Mad props is a simple generalized propagator framework. This means it's pretty good at expressing and solving generalized [constraint satisfaction problems](https://en.wikipedia.org/wiki/Constraint_satisfaction_problem).
 
-It's a pain to express CSP's to many solvers; you either need to compress your problem down to relations between boolean variables, or try to cram your problem into their particular format. Mad Props uses a Monadic DSL for expressing the variables in your problem and the relationships between them, meaning you can use normal Haskell to express your problem.
+There are many other constraint solvers out there, probably most of them are faster than this one, but for those who like the comfort and type-safety of working in Haskell, I've gotcha covered.
+
+With other constraint solvers it can be a bit of a pain to express your problem; you either need to compress your problem down to relations between boolean variables, or try to cram your problem into their particular format. Mad Props uses a Monadic DSL for expressing the variables in your problem and the relationships between them, meaning you can use normal Haskell to express your problem.
 
 It's still unfinished and undergoing rapid iteration and experimentation, so I wouldn't base any major projects on it yet.
 
@@ -13,8 +15,8 @@ We'll write a quick Sudoku solver using Propagators.
 Here's a problem which Telegraph has claimed to be ["the world's hardest Sudoku"](https://www.telegraph.co.uk/news/science/science-news/9359579/Worlds-hardest-sudoku-can-you-crack-it.html). Let's see if we can crack it.
 
 ```haskell
-hardestBoard :: [String]
-hardestBoard = tail . lines $ [r|
+hardestProblem :: [String]
+hardestProblem = tail . lines $ [r|
 8........
 ..36.....
 .7..9.2..
@@ -35,6 +37,9 @@ txtToBoard = (fmap . fmap) possibilities
     possibilities :: Char -> S.Set Int
     possibilities '.' = S.fromList [1..9]
     possibilities a = S.fromList [read [a]]
+
+hardestBoard :: [[S.Set Int]]
+hardestBoard = txtToBoard hardestProblem
 ```
 
 This function takes our problem and converts it into a nested grid of variables! Each variable 'contains' all the possibilities for that square. Now we need to 'constrain' the problem!
@@ -51,14 +56,15 @@ blocksOf = chunksOf 9 . concat . concat . fmap transpose . chunksOf 3 . transpos
 Now we can worry about telling the system about our constraints. We'll map over each region relating every variable to every other one. This function assumes we've replaced the `Set a`'s in our board representation with the appropriate `PVar`'s, we'll actually do that soon, but for now you can look the other way.
 
 ```haskell
-linkBoard :: [[PVar s (S.Set Int)]] -> GraphM s ()
-linkBoard xs = do
+-- | Given a board of 'PVar's, link the appropriate cells with 'disjoint' constraints
+linkBoardCells :: [[PVar (S.Set Int)]] -> Prop ()
+linkBoardCells xs = do
     let rows = rowsOf xs
     let cols = colsOf xs
     let blocks = blocksOf xs
     for_ (rows <> cols <> blocks) $ \region -> do
         let uniquePairings = [(a, b) | a <- region, b <- region, a /= b]
-        for_ uniquePairings $ \(a, b) -> link a b disj
+        for_ uniquePairings $ \(a, b) -> constrain a b disj
   where
     disj :: Ord a => a -> S.Set a -> S.Set a
     disj x xs = S.delete x xs
@@ -67,52 +73,55 @@ linkBoard xs = do
 
 Now every pair of `PVars` in each region is linked by the `disj` relation.
 
-`link` accepts two PVars and a function, the function takes a 'choice' from the first variable and uses it to constrain the 'options' from the second. In this case, if the first variable is fixed to a specific value we 'propagate' by removing all matching values from the other variable's pool, you can see the implementation of the `disj` helper above. The information about the 'link' is stored inside the `GraphM` monad.
+`constrain` accepts two `PVar`s and a function, the function takes a 'choice' from the first variable and uses it to constrain the 'options' from the second. In this case, if the first variable is fixed to a specific value we 'propagate' by removing all matching values from the other variable's pool, you can see the implementation of the `disj` helper above. The information about the 'link' is stored inside the `Prop` monad.
 
 Here's the real signature in case you're curious: 
 
 ```haskell
-link :: (Typeable g, Typeable (Element f)) 
-     => PVar s f -> PVar s g -> (Element f -> g -> g) -> GraphM s ()
+constrain :: (Monad m, Typeable g, Typeable (Element f)) 
+          => PVar f -> PVar g -> (Element f -> g -> g) 
+          -> PropT m ()
 ```
 
-Set disjunction is symmetric, propagators in general are not. However our loop will process each pair twice, once in each direction so we're still fine.
+Set disjunction is symmetric, propagators in general are not, so we'll need to 'constrain' in each direction. Luckily our loop will process each pair twice, so we'll run this once in each direction.
 
 Now we can link our parts together:
 
 ```haskell
-setup :: [[S.Set Int]]-> GraphM s [[PVar s (S.Set Int)]]
-setup board = do
+-- | Given a sudoku board, apply the necessary constraints and return a result board of
+-- 'PVar's. We wrap the result in 'Compose' because 'solve' requires a Functor over 'PVar's
+constrainBoard :: [[S.Set Int]]-> Prop (Compose [] [] (PVar (S.Set Int)))
+constrainBoard board = do
     vars <- (traverse . traverse) newPVar board
-    linkBoard vars
-    return vars
+    linkBoardCells vars
+    return (Compose vars)
 ```
 
-We accept a sudoku "board", we replace each `Set Int` with a `PVar s (S.Set Int)` using `newPVar` which creates a propagator from a set of possible values. This is a propagator variable which has a `Set` of Ints which the variable could take. The `PVar` and `GraphM` each take a scoping parameter `s` which helps prevent PVars from escaping the monad in which they were created. (Or at least it will once I implement that.)
+We accept a sudoku "board", we replace each `Set Int` with a `PVar (S.Set Int)` using `newPVar` which creates a propagator from a set of possible values. This is a propagator variable which has a `Set` of Ints which the variable could take. We then link all the board's cells together using constraints, and lastly return a `Functor` full of `PVar`s; which will later be replaced with actual values. `Compose` converts a list of lists into a single functor over the nested elements.
 
 ```haskell
-newPVar :: (MonoFoldable f, Typeable f, Typeable (Element f)) 
-        => f -> GraphM s (PVar s f)
+newPVar :: (Monad m, MonoFoldable f, Typeable f, Typeable (Element f)) 
+        => f -> PropT m (PVar f)
 ```
 
 Now that we've got our problem set up we need to execute it!
 
 ```haskell
-solvePuzzle :: [String] -> IO ()
+-- Solve a given sudoku board and print it to screen
+solvePuzzle :: [[S.Set Int]] -> IO ()
 solvePuzzle puz = do
-    (vars, g) <- solveGraph (setup $ txtToBoard puz)
-    let results = (fmap . fmap) (readPVar g) vars
+    -- We know it will succeed, but in general you should handle failure safely
+    let Just (Compose results) = solve $ constrainBoard puz
     putStrLn $ boardToText results
 ```
 
-We run `solveGraph` to run the propagation solver, which returns a solved graph and the result of the `GraphM`. For now we'll just return the grid of `PVars`, then use the graph and `readPVar` to extract the 'solved' value from them! If all went well we'll have the solution of each cell! Then we'll print it out.
+We run `solveGraph` to run the propagation solver. It accepts a puzzle, builds and constrains the cells, then calls `solve` which maps over the `Compose`'d board we created in `constrainBoard` and replaces all the `PVar`s with actual results! If all went well we'll have the solution of each cell! Then we'll print it out.
 
 Here are some types first, then we'll try it out:
 
 ```haskell
-readPVar :: Typeable a 
-         => Graph s -> PVar s f -> a
-solveGraph :: GraphM s a -> IO (a, Graph s)
+solve :: (Functor f, Typeable (Element g)) 
+      => Prop (f (PVar g)) -> Maybe (f (Element g))
 ```
 
 We can plug in our hardest sudoku and after a second or two we'll print out the answer!
@@ -139,47 +148,73 @@ Just for fun, here's the N-Queens problem
 ```haskell
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE ViewPatterns #-}
-module NQueens where
+module Examples.NQueens where
 
 import qualified Data.Set as S
 import Props
 import Data.Foldable
 import Data.List
 
+-- | A board coordinate
 type Coord = (Int, Int)
 
-killSquares :: Coord -> S.Set Coord -> S.Set Coord
-killSquares c = S.filter (killSquare c)
-
-killSquare :: Coord -> Coord -> Bool
-killSquare (x, y) (x', y')
-  -- Same Row
-  | x == x' = False
-  -- Same Column
-  | y == y' = False
-  -- Same Diagonal 1
-  | x - x' == y - y' = False
-  -- Same Diagonal 2
-  | x + y == x' + y' = False
-  | otherwise = True
-
-setup :: Int -> GraphM s [PVar s (S.Set Coord)]
-setup n = do
+-- | Given a number of queens, constrain them to not overlap
+constrainQueens :: Int -> Prop [PVar (S.Set Coord)]
+constrainQueens n = do
     -- All possible grid locations
     let locations = S.fromList [(x, y) | x <- [0..n - 1], y <- [0..n - 1]]
+    -- Each queen could initially be placed anywhere
     let queens = replicate n locations
+    -- Make a PVar for each queen's location
     queenVars <- traverse newPVar queens
+    -- Each pair of queens must not overlap
     let queenPairs = [(a, b) | a <- queenVars, b <- queenVars, a /= b]
-    for_ queenPairs $ \(a, b) -> link a b killSquares
+    for_ queenPairs $ \(a, b) -> require (\x y -> not $ overlapping x y) a b
     return queenVars
 
-solve :: Int -> IO ()
-solve n = do
-    (vars, g) <- solveGraph (setup n)
-    let results = readPVar g <$> vars
-    putStrLn $ printSolution n results
+-- | Check whether two queens overlap with each other (i.e. could kill each other)
+overlapping :: Coord -> Coord -> Bool
+overlapping (x, y) (x', y')
+  -- Same Row
+  | x == x' = True
+  -- Same Column
+  | y == y' = True
+  -- Same Diagonal 1
+  | x - x' == y - y' = True
+  -- Same Diagonal 2
+  | x + y == x' + y' = True
+  | otherwise = False
+
+-- | Print an nQueens puzzle to a string.
+showSolution :: Int -> [Coord] -> String
+showSolution n (S.fromList -> qs) =
+    let str = toChar . (`S.member` qs) <$> [(x, y) | x <- [0..n-1], y <- [0..n-1]]
+     in unlines . chunksOf n $ str
+  where
+    toChar :: Bool -> Char
+    toChar True = 'Q'
+    toChar False = '.'
+
+    chunksOf :: Int -> [a] -> [[a]]
+    chunksOf n = unfoldr go
+      where
+        go [] = Nothing
+        go xs = Just (take n xs, drop n xs)
+
+-- | Solve and print an N-Queens puzzle
+nQueens :: Int -> IO ()
+nQueens n = do
+    let Just results = solve (constrainQueens n)
+    putStrLn $ showSolution n results
+
+-- | Solve and print all possible solutions of an N-Queens puzzle
+-- This will include duplicates.
+nQueensAll :: Int -> IO ()
+nQueensAll n = do
+    let results = solveAll (constrainQueens n)
+    traverse_ (putStrLn . showSolution n) results
 ```
 
 ## Performance
 
-This is a generalized solution, so performance suffers in relation to a tool built for the job (e.g. It's not as fast as dedicated Sudoku solvers); but it does "pretty well". I'm still working on improving performance, but try it out and see how you fare.
+This is a generalized solution, so performance suffers in relation to a tool built for the job (e.g. It's not as fast as dedicated Sudoku solvers); but it does "pretty well".

@@ -20,8 +20,8 @@ import Data.Foldable
 import Control.Monad.State
 
 solve :: Graph
-      -> Graph
-solve graph' = snd $ runBacktrack (initMinTracker graph') graph' solve'
+      -> Maybe Graph
+solve graph' = fmap snd $ runBacktrack (initMinTracker graph') graph' solve'
 
 solveAll :: Graph -> [Graph]
 solveAll graph' = snd <$> runBacktrackAll (initMinTracker graph') graph' solve'

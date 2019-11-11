@@ -4,11 +4,13 @@ cabal-version: 1.12
 --
 -- see: https://github.com/sol/hpack
 --
--- hash: 46e7ca301e6661187dde91f6106499a08d39dcfbdf7f8714a76f487d7bc1a9b5
+-- hash: 33df843ae197b9debc55c9ed25dfb25eb1a01e4deb1623975fa0cb69e25705be
 
 name:           mad-props
 version:        0.1.0.0
+synopsis:       Monadic DSL for building constraint solvers using basic propagators.
 description:    Please see the README on GitHub at <https://github.com/ChrisPenner/mad-props#readme>
+category:       Propagators
 homepage:       https://github.com/ChrisPenner/mad-props#readme
 bug-reports:    https://github.com/ChrisPenner/mad-props/issues
 author:         Chris Penner
@@ -53,7 +55,6 @@ library
     , random
     , random-shuffle
     , raw-strings-qq
-    , text
     , transformers
   default-language: Haskell2010
 
@@ -66,7 +67,6 @@ executable sudoku-exe
   ghc-options: -Wall -fno-warn-name-shadowing -O2 -threaded -rtsopts -with-rtsopts=-N
   build-depends:
       MonadRandom
-    , ansi-terminal
     , base >=4.7 && <5
     , containers
     , lens
@@ -78,6 +78,5 @@ executable sudoku-exe
     , random
     , random-shuffle
     , raw-strings-qq
-    , text
     , transformers
   default-language: Haskell2010
