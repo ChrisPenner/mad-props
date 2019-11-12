@@ -89,7 +89,7 @@ Set disjunction is symmetric, propagators in general are not, so we'll need to '
 Here's the real signature in case you're curious: 
 
 ```haskell
-constrain :: (Monad m, Typeable g, Typeable a, Typeable b)
+constrain :: Monad m
           => PVar f a
           -> PVar g b
           -> (a -> g b -> g b)
@@ -136,7 +136,7 @@ Unfortunately `solve` has a bit of a complicated signature, there are simpler ve
 solve :: forall a r.
         -- A finalizer which accepts a PVar 'resolver' as an argument
         -- alongside the result of the Prop setup, and returns some result
-        ((forall f x. Typeable x => PVar f x -> x) -> a -> r)
+        ((forall f x. PVar f x -> x) -> a -> r)
       -> Prop a
       -> (Maybe r)
 ```

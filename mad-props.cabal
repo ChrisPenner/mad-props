@@ -4,10 +4,10 @@ cabal-version: 1.12
 --
 -- see: https://github.com/sol/hpack
 --
--- hash: 2aeb2de1c06b554035707f13de1caae267a1a94b6e484f4f7f261365f87b46ee
+-- hash: 663fc348378bb0879419e139117b3cb738781875d627cbe8259dded81e0fd92b
 
 name:           mad-props
-version:        0.1.0.0
+version:        0.2.0.0
 synopsis:       Monadic DSL for building constraint solvers using basic propagators.
 description:    Please see the README on GitHub at <https://github.com/ChrisPenner/mad-props#readme>
 category:       Propagators
@@ -49,7 +49,6 @@ library
     , containers
     , lens
     , logict
-    , mono-traversable
     , mtl
     , psqueues
     , random
@@ -72,7 +71,6 @@ executable sudoku-exe
     , lens
     , logict
     , mad-props
-    , mono-traversable
     , mtl
     , psqueues
     , random

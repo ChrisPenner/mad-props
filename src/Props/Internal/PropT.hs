@@ -5,6 +5,8 @@
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE RankNTypes #-}
+{-# LANGUAGE GADTs #-}
+{-# LANGUAGE TypeApplications #-}
 
 module Props.Internal.PropT
     ( Prop
@@ -40,11 +42,18 @@ newtype PropT m a =
 {-|
 A propagator variable where the possible values @a@ are contained in the container @f@.
 -}
-data PVar (f :: * -> *) a = PVar Vertex
-  deriving (Eq -- ^ Nominal equality, Ignores contents
-    , Ord -- ^ Nominal ordering, Ignores contents.
-    , Show
-           )
+data PVar (f :: * -> *) a where
+  PVar :: (Typeable a, Typeable f) => Vertex -> PVar f a
+
+-- | Nominal equality, Ignores contents
+instance Eq (PVar f a) where
+  (PVar v) == (PVar t) = v == t
+
+instance Ord (PVar f a) where
+  PVar v <= PVar t = v <= t
+
+instance Show (PVar f a) where
+  show (PVar _) = unwords ["PVar", show (typeRep (Proxy @f)), show (typeRep (Proxy @a))]
 
 {-|
 Used to create a new propagator variable within the setup for your problem.
@@ -71,7 +80,7 @@ You can constrain @b@ to be a different value than @a@ with the following call:
 
 Take a look at some linking functions which are already provided: 'disjoint', 'equal', 'require'
 -}
-constrain :: (Monad m, Typeable g, Typeable a, Typeable b)
+constrain :: Monad m
           => PVar f a
           -> PVar g b
           -> (a -> g b -> g b)
@@ -79,7 +88,7 @@ constrain :: (Monad m, Typeable g, Typeable a, Typeable b)
 constrain (PVar from') (PVar to') f = PropT $ do
     edgeBetween from' to' ?= toDyn f
 
-readPVar :: (Typeable a) => Graph -> PVar f a -> a
+readPVar :: Graph -> PVar f a -> a
 readPVar g (PVar v) =
     fromMaybe (error "readPVar called on unsolved graph")
     $ (g ^? valueAt v . folding unpackQuantum)
@@ -108,7 +117,7 @@ which converts 'PVar's into a result.Given an action which initializes and const
 -}
 solveT :: forall m a r.
        Monad m
-       => ((forall f x. Typeable x => PVar f x -> x) -> a -> r)
+       => ((forall f x. PVar f x -> x) -> a -> r)
        -> PropT m a
        -> m (Maybe r)
 solveT f m = do
@@ -123,7 +132,7 @@ Like 'solveT', but finds ALL possible solutions. There will likely be duplicates
 -}
 solveAllT :: forall m a r.
           Monad m
-          => ((forall f x. Typeable x => PVar f x -> x) -> a -> r)
+          => ((forall f x. PVar f x -> x) -> a -> r)
           -> PropT m a
           -> m [r]
 solveAllT f m = do
@@ -135,7 +144,7 @@ solveAllT f m = do
 Pure version of 'solveT'
 -}
 solve :: forall a r.
-        ((forall f x. Typeable x => PVar f x -> x) -> a -> r)
+        ((forall f x. PVar f x -> x) -> a -> r)
       -> Prop a
       -> (Maybe r)
 solve f = runIdentity . solveT f
@@ -144,7 +153,7 @@ solve f = runIdentity . solveT f
 Pure version of 'solveAllT'
 -}
 solveAll :: forall a r.
-            ((forall f x. Typeable x => PVar f x -> x) -> a -> r)
+            ((forall f x. PVar f x -> x) -> a -> r)
           -> Prop a
           -> [r]
 solveAll f = runIdentity . solveAllT f
