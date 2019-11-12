@@ -6,4 +6,4 @@ import Examples.NQueens as NQ
 main :: IO ()
 main = do
     S.solveEasyPuzzle
-    NQ.solve 8
+    NQ.nQueens 8
