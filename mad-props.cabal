@@ -4,10 +4,10 @@ cabal-version: 1.12
 --
 -- see: https://github.com/sol/hpack
 --
--- hash: 663fc348378bb0879419e139117b3cb738781875d627cbe8259dded81e0fd92b
+-- hash: a42c235991d5a051d2c2e06b557284432c12645b78bd3e0c94de36ef67c038bb
 
 name:           mad-props
-version:        0.2.0.0
+version:        0.2.1.0
 synopsis:       Monadic DSL for building constraint solvers using basic propagators.
 description:    Please see the README on GitHub at <https://github.com/ChrisPenner/mad-props#readme>
 category:       Propagators

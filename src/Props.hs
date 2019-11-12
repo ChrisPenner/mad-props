@@ -15,6 +15,8 @@ module Props
     , newPVar
 
     -- * Finding Solutions
+    , solveT
+    , solveAllT
     , solve
     , solveAll
 

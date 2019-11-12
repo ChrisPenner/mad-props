@@ -13,6 +13,8 @@ module Props.Internal.PropT
     , PropT
     , newPVar
     , constrain
+    , solveT
+    , solveAllT
     , solve
     , solveAll
     , readPVar
@@ -112,7 +114,9 @@ For example, if you wrote a solution to the nQueens problem, you might run it li
 > initNQueens = ...
 >
 > solution :: [Coord]
-> solution = solve (initNQueens 8) (\readPVar vars -> fmap readPVar vars)
+> solution = solve (\readPVar vars -> fmap readPVar vars) (initNQueens 8)
+> -- or more simply:
+> solution = solve fmap (initNQueens 8)
 which converts 'PVar's into a result.Given an action which initializes and constrains a problem 'solveT' will  and returns some container of 'PVar's, 'solveT' will attempt to find a solution which passes all valid constraints.
 -}
 solveT :: forall m a r.
