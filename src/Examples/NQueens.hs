@@ -19,7 +19,7 @@ import Data.List
 type Coord = (Int, Int)
 
 -- | Given a number of queens, constrain them to not overlap
-constrainQueens :: Int -> Prop [PVar (S.Set Coord)]
+constrainQueens :: Int -> Prop [PVar S.Set Coord]
 constrainQueens n = do
     -- All possible grid locations
     let locations = S.fromList [(x, y) | x <- [0..n - 1], y <- [0..n - 1]]
@@ -64,13 +64,12 @@ showSolution n (S.fromList -> qs) =
 -- | Solve and print an N-Queens puzzle
 nQueens :: Int -> IO ()
 nQueens n = do
-    let Just results = solve (constrainQueens n)
+    let Just results = solve fmap (constrainQueens n)
     putStrLn $ showSolution n results
 
 -- | Solve and print all possible solutions of an N-Queens puzzle
 -- This will include duplicates.
 nQueensAll :: Int -> IO ()
 nQueensAll n = do
-    let results = solveAll (constrainQueens n)
+    let results = solveAll fmap (constrainQueens n)
     traverse_ (putStrLn . showSolution n) results
-

@@ -30,12 +30,12 @@ makeLenses ''BState
 instance MT.HasMinTracker BState where
   minTracker = bsMinTracker
 
-rselect :: (Foldable f, Functor f) => f a -> Backtrack a
+rselect :: (Foldable f) => f a -> Backtrack a
 rselect (toList -> fa) = (shuffleM fa) >>= select
 {-# INLINE rselect #-}
 
-select :: (Foldable f, Functor f) => f a -> Backtrack a
-select fa = asum (pure <$> fa)
+select :: (Foldable f) => f a -> Backtrack a
+select (toList -> fa) = asum (pure <$> fa)
 {-# INLINE select #-}
 
 runBacktrack :: MT.MinTracker -> Graph -> Backtrack a -> Maybe (a, Graph)

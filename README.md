@@ -63,7 +63,7 @@ We can now introduce the constraints of Sudoku as relations between cells. The c
 
 ```haskell
 -- | Given a board of 'PVar's, link the appropriate cells with 'disjoint' constraints
-linkBoardCells :: [[PVar (S.Set Int)]] -> Prop ()
+linkBoardCells :: [[PVar S.Set Int]] -> Prop ()
 linkBoardCells xs = do
     let rows = rowsOf xs
     let cols = colsOf xs
@@ -89,32 +89,32 @@ Set disjunction is symmetric, propagators in general are not, so we'll need to '
 Here's the real signature in case you're curious: 
 
 ```haskell
-constrain :: (Monad m, Typeable g, Typeable (Element f)) 
-          => PVar f -> PVar g -> (Element f -> g -> g) 
+constrain :: (Monad m, Typeable g, Typeable a, Typeable b)
+          => PVar f a
+          -> PVar g b
+          -> (a -> g b -> g b)
           -> PropT m ()
 ```
 
 We're almost there; we've got a way to constrain a board of `PVar`s, but we need to make the board of `PVar`s somehow!
 
-This is pretty easy; we can make a `PVar` by calling `newPVar` and passing it a container full of possible options the variable could be. We'll convert our `[[S.Set Int]]` into `[[PVar (S.Set Int)]]` by traversing the structure using `newPVar`.
+This is pretty easy; we can make a `PVar` by calling `newPVar` and passing it a container full of possible options the variable could be. We'll convert our `[[S.Set Int]]` into `[[PVar S.Set Int]]` by traversing the structure using `newPVar`.
 
 ```haskell
--- | Given a sudoku board, apply the necessary constraints and return a result board of
--- 'PVar's. We wrap the result in 'Compose' because 'solve' requires a Functor over 'PVar's
-constrainBoard :: [[S.Set Int]]-> Prop (Compose [] [] (PVar (S.Set Int)))
+-- | Given a sudoku board, apply the necessary constraints and return a result board of 'PVar's.
+constrainBoard :: [[S.Set Int]]-> Prop [[PVar S.Set Int]]
 constrainBoard board = do
     vars <- (traverse . traverse) newPVar board
     linkBoardCells vars
-    return (Compose vars)
+    return vars
 ```
-
-Now we can accept a board, constrain all the variables together! We return `Compose [] [] (PVar (S.Set Int))` which might seem a bit strange, but you'll see why in a second!
 
 Here's the signature of `newPVar` in case you're curious:
 
 ```haskell
-newPVar :: (Monad m, MonoFoldable f, Typeable f, Typeable (Element f)) 
-        => f -> PropT m (PVar f)
+newPVar :: (Monad m, Foldable f, Typeable f, Typeable a) 
+        => f a 
+        -> PropT m (PVar f a)
 ```
 
 Now that we've got our problem set up we need to execute it!
@@ -124,20 +124,22 @@ Now that we've got our problem set up we need to execute it!
 solvePuzzle :: [[S.Set Int]] -> IO ()
 solvePuzzle puz = do
     -- We know it will succeed, but in general you should handle failure safely
-    let Just (Compose results) = solve $ constrainBoard puz
+    let Just results = solve (fmap . fmap) $ constrainBoard puz
     putStrLn $ boardToText results
 ```
 
-We run `solveGraph` to run the propagation solver. It accepts a puzzle, builds and constrains the cells, then calls `solve` which maps over the `Compose`'d board we created in `constrainBoard` and replaces all the `PVar`s with actual results! If all went well we'll have the solution of each cell! Then we'll print it out.
+`solvePuzzle` will print a solution for any valid puzzle you pass it. It accepts a puzzle, builds and constrains the cells, then calls `solve` which will find a valid solution for the constraints we provided if possible. We pass it a 'finalizer' function which accepts a function for resolving any `PVar` to its 'solved' result. In our case we just use `fmap . fmap` to map the resolver over every PVar in the board returned from `constrainBoard`. If all went well we'll have the solution of each cell! Then we'll print it out.
 
-Here are some types first, then we'll try it out:
+Unfortunately `solve` has a bit of a complicated signature, there are simpler versions, but unfortunately they're not possible until GHC supports proper ImpredicativeTypes.
 
 ```haskell
-solve :: (Functor f, Typeable (Element g)) 
-      => Prop (f (PVar g)) -> Maybe (f (Element g))
+solve :: forall a r.
+        -- A finalizer which accepts a PVar 'resolver' as an argument
+        -- alongside the result of the Prop setup, and returns some result
+        ((forall f x. Typeable x => PVar f x -> x) -> a -> r)
+      -> Prop a
+      -> (Maybe r)
 ```
-
-You can return any Functor from your setup `Prop` action. The `solve` function will map over it and replace all the `PVar`s inside with the solved values.
 
 We can plug in our hardest sudoku and after a second or two we'll print out the answer!
 
@@ -174,7 +176,7 @@ import Data.List
 type Coord = (Int, Int)
 
 -- | Given a number of queens, constrain them to not overlap
-constrainQueens :: Int -> Prop [PVar (S.Set Coord)]
+constrainQueens :: Int -> Prop [PVar S.Set Coord]
 constrainQueens n = do
     -- All possible grid locations
     let locations = S.fromList [(x, y) | x <- [0..n - 1], y <- [0..n - 1]]
@@ -219,7 +221,7 @@ showSolution n (S.fromList -> qs) =
 -- | Solve and print an N-Queens puzzle
 nQueens :: Int -> IO ()
 nQueens n = do
-    let Just results = solve (constrainQueens n)
+    let Just results = solve fmap (constrainQueens n)
     putStrLn $ showSolution n results
 
 -- | Solve and print all possible solutions of an N-Queens puzzle

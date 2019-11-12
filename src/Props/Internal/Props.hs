@@ -15,7 +15,6 @@ import Props.Internal.Backtracking
 import Props.Internal.Graph
 import qualified Props.Internal.MinTracker as MT
 import Data.Dynamic
-import Data.MonoTraversable
 import Data.Foldable
 import Control.Monad.State
 
@@ -41,10 +40,9 @@ collapse n = do
 
 choicesOfQ' :: Quantum -> Vertex -> Backtrack ()
 choicesOfQ' (Quantum (Observed{})) _ = error "Can't collapse an already collapsed node!"
-choicesOfQ' (Quantum (Unknown xs :: SuperPos f)) n = do
-    let options = otoList xs
-    choice <- select options
-    graph . valueAt n . superPos .= (Observed choice :: SuperPos f)
+choicesOfQ' (Quantum (Unknown xs :: SuperPos f a)) n = do
+    choice <- select xs
+    graph . valueAt n . superPos .= (Observed choice :: SuperPos f a)
     propagate (n, toDyn choice)
 {-# INLINE choicesOfQ' #-}
 
@@ -73,8 +71,8 @@ propagateSingle v (to', dfilter) = do
     return ()
   where
     alterQ :: Quantum -> (Maybe Int, Quantum)
-    alterQ (Quantum (Unknown xs :: SuperPos f)) = do
-        let filteredDown = (forceDyn $ dynApp (dynApp dfilter v) (toDyn xs) :: f)
-         in (Just $ olength filteredDown, Quantum (Unknown filteredDown))
+    alterQ (Quantum (Unknown xs :: SuperPos f a)) = do
+        let filteredDown = (forceDyn $ dynApp (dynApp dfilter v) (toDyn xs) :: f a)
+         in (Just $ length filteredDown, Quantum (Unknown filteredDown))
     alterQ q = (Nothing, q)
 {-# INLINE propagateSingle #-}

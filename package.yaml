@@ -1,5 +1,5 @@
 name:                mad-props
-version:             0.1.0.0
+version:             0.2.0.0
 github:              "ChrisPenner/mad-props"
 license:             BSD3
 author:              "Chris Penner"
@@ -30,7 +30,6 @@ dependencies:
 - random-shuffle
 - psqueues
 - logict
-- mono-traversable
 - random
 
 library:
@@ -39,6 +38,7 @@ library:
 ghc-options:
   - -Wall
   - -fno-warn-name-shadowing
+  - -fwarn-redundant-constraints
   - -O2
 
 executables:

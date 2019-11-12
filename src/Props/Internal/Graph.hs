@@ -43,7 +43,6 @@ import Data.Dynamic
 import Data.Maybe
 import Data.Typeable
 import Data.Typeable.Lens
-import Data.MonoTraversable
 
 type DFilter = Dynamic
 type DChoice = Dynamic
@@ -51,22 +50,22 @@ type Vertex' = Int
 newtype Vertex = Vertex Int
   deriving (Show, Eq, Ord)
 
-data SuperPos f where
-    Observed :: MonoFoldable f => Element f -> SuperPos f
-    Unknown :: MonoFoldable f => f -> SuperPos f
+data SuperPos f a where
+    Observed :: Foldable f => a -> SuperPos f a
+    Unknown :: Foldable f => f a -> SuperPos f a
 
-instance Show (SuperPos f) where
+instance Show (SuperPos f a) where
   show (Observed _) = "Observed"
   show (Unknown _) = "Unknown"
 
-_Unknown :: (Show f, Show (Element f), MonoFoldable f) => Prism' (SuperPos f) f
+_Unknown :: Foldable f => Prism' (SuperPos f a) (f a)
 _Unknown = prism' embed match
   where
     embed = Unknown
     match (Unknown f) = Just f
     match _ = Nothing
 
-_Observed :: (Show (Element f), MonoFoldable f) => Prism' (SuperPos f) (Element f)
+_Observed :: Foldable f => Prism' (SuperPos f a) a
 _Observed = prism' embed match
   where
     embed = Observed
@@ -74,11 +73,11 @@ _Observed = prism' embed match
     match _ = Nothing
 
 data Quantum =
-    forall f. (Show (SuperPos f), Typeable f, Typeable (Element f), MonoFoldable f) => Quantum
-        { options   :: SuperPos f
+    forall f a. (Show (SuperPos f a), Typeable f, Typeable a, Foldable f) => Quantum
+        { options   :: SuperPos f a
         }
 
-superPos :: (Typeable f, Typeable (Element f), MonoFoldable f) => Traversal' Quantum (SuperPos f)
+superPos :: (Typeable f, Typeable a) => Traversal' Quantum (SuperPos f a)
 superPos f (Quantum o) = Quantum <$> (o & _cast %%~ f)
 
 instance Show Quantum where
@@ -126,5 +125,5 @@ edgesFrom n = edges n . imAsList . traversed . coerced
 {-# INLINE edgesFrom #-}
 
 entropyOfQ :: Quantum -> (Maybe Int)
-entropyOfQ (Quantum (Unknown xs)) = Just $ olength xs
+entropyOfQ (Quantum (Unknown xs)) = Just $ length xs
 entropyOfQ _ = Nothing

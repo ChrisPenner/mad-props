@@ -17,7 +17,6 @@ import Data.Foldable
 import Text.RawString.QQ (r)
 import qualified Data.Set as S
 import Data.List
-import Data.Functor.Compose
 
 -- | Convert a textual board into a board containing sets of cells of possible numbers
 txtToBoard :: [String] -> [[S.Set Int]]
@@ -77,7 +76,7 @@ blocksOf = chunksOf 9 . concat . concat . fmap transpose . chunksOf 3 . transpos
 
 
 -- | Given a board of 'PVar's, link the appropriate cells with 'disjoint' constraints
-linkBoardCells :: [[PVar (S.Set Int)]] -> Prop ()
+linkBoardCells :: [[PVar S.Set Int]] -> Prop ()
 linkBoardCells xs = do
     let rows = rowsOf xs
     let cols = colsOf xs
@@ -91,17 +90,17 @@ linkBoardCells xs = do
 
 -- | Given a sudoku board, apply the necessary constraints and return a result board of
 -- 'PVar's. We wrap the result in 'Compose' because 'solve' requires a Functor over 'PVar's
-constrainBoard :: [[S.Set Int]]-> Prop (Compose [] [] (PVar (S.Set Int)))
+constrainBoard :: [[S.Set Int]]-> Prop [[PVar S.Set Int]]
 constrainBoard board = do
     vars <- (traverse . traverse) newPVar board
     linkBoardCells vars
-    return (Compose vars)
+    return vars
 
 -- Solve a given sudoku board and print it to screen
 solvePuzzle :: [[S.Set Int]] -> IO ()
 solvePuzzle puz = do
     -- We know it will succeed, but in general you should handle failure safely
-    let Just (Compose results) = solve $ constrainBoard puz
+    let Just results = solve (fmap . fmap) $ constrainBoard puz
     putStrLn $ boardToText results
 
 solveEasyPuzzle :: IO ()

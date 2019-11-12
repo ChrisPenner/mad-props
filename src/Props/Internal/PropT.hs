@@ -4,6 +4,7 @@
 {-# LANGUAGE KindSignatures #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE RankNTypes #-}
 
 module Props.Internal.PropT
     ( Prop
@@ -22,7 +23,6 @@ import Control.Monad.State
 import Control.Lens
 import Data.Typeable
 import Data.Dynamic
-import Data.MonoTraversable
 import Data.Maybe
 
 -- | Pure version of 'PropT'
@@ -38,9 +38,9 @@ newtype PropT m a =
     deriving newtype (Functor, Applicative, Monad, MonadIO, MonadTrans)
 
 {-|
-A propagator variable where the possible values are contained in the MonoFoldable type @f@.
+A propagator variable where the possible values @a@ are contained in the container @f@.
 -}
-data PVar f = PVar Vertex
+data PVar (f :: * -> *) a = PVar Vertex
   deriving (Eq -- ^ Nominal equality, Ignores contents
     , Ord -- ^ Nominal ordering, Ignores contents.
     , Show
@@ -49,11 +49,11 @@ data PVar f = PVar Vertex
 {-|
 Used to create a new propagator variable within the setup for your problem.
 
-@f@ is any MonoFoldable container which contains each of the possible states which the variable could take. In practice this most standard containers make a good candidate, it's easy to define a your own instance if needed.
+@f@ is any Foldable container which contains each of the possible states which the variable could take.
 
-E.g. For a sudoku solver you would use 'newPVar' to create a variable for each cell, passing a @Set Int@ or @IntSet@ containing the numbers @[1..9]@.
+E.g. For a sudoku solver you would use 'newPVar' to create a variable for each cell, passing a @Set Int@ containing the numbers @[1..9]@.
 -}
-newPVar :: (Monad m, MonoFoldable f, Typeable f, Typeable (Element f)) => f -> PropT m (PVar f)
+newPVar :: (Monad m, Foldable f, Typeable f, Typeable a) => f a -> PropT m (PVar f a)
 newPVar xs = PropT $ do
     v <- vertexCount <+= 1
     vertices . at v ?= (Quantum (Unknown xs), mempty)
@@ -62,19 +62,24 @@ newPVar xs = PropT $ do
 {-|
 'constrain' the relationship between two 'PVar's. Note that this is a ONE WAY relationship; e.g. @constrain a b f@ will propagate constraints from @a@ to @b@ but not vice versa.
 
-Given @PVar f@ and @PVar g@ as arguments, provide a function which will filter/alter the options in @g@ according to the choice.
+Given @PVar f a@ and @PVar g b@ as arguments, provide a function which will filter/alter the options in @g@ according to the choice.
 
-For a sudoku puzzle @f@ and @g@ each represent cells on the board. If @f ~ Set Int@ and @g ~ Set Int@, then you might pass a constraint filter:
+For a sudoku puzzle you'd have two @Pvar Set Int@'s, each representing a cell on the board.
+You can constrain @b@ to be a different value than @a@ with the following call:
 
 > constrain a b $ \elementA setB -> S.delete elementA setB)
 
 Take a look at some linking functions which are already provided: 'disjoint', 'equal', 'require'
 -}
-constrain :: (Monad m, Typeable g, Typeable (Element f)) => PVar f -> PVar g -> (Element f -> g -> g) -> PropT m ()
+constrain :: (Monad m, Typeable g, Typeable a, Typeable b)
+          => PVar f a
+          -> PVar g b
+          -> (a -> g b -> g b)
+          -> PropT m ()
 constrain (PVar from') (PVar to') f = PropT $ do
     edgeBetween from' to' ?= toDyn f
 
-readPVar :: (Typeable (Element f)) => Graph -> PVar f -> Element f
+readPVar :: (Typeable a) => Graph -> PVar f a -> a
 readPVar g (PVar v) =
     fromMaybe (error "readPVar called on unsolved graph")
     $ (g ^? valueAt v . folding unpackQuantum)
@@ -83,36 +88,63 @@ unpackQuantum :: (Typeable a) => Quantum -> Maybe a
 unpackQuantum (Quantum (Observed xs)) = cast xs
 unpackQuantum (Quantum _) = Nothing
 
-buildGraph :: (Monad m) => PropT m a -> m (a, Graph)
+buildGraph :: PropT m a -> m (a, Graph)
 buildGraph = flip runStateT emptyGraph . runGraphM
 
 {-|
-Given an action which initializes and constrains a problem and returns some container of 'PVar's, 'solveT' will attempt to find a solution which passes all valid constraints.
+Provide an initialization action which constrains the problem, and a finalizer, and 'solveT' will return a result if one exists.
+
+The finalizer is an annoyance caused by the fact that GHC does not yet support Impredicative Types.
+
+For example, if you wrote a solution to the nQueens problem, you might run it like so:
+
+> -- Set up the problem for 'n' queens and return their PVar's as a list.
+> initNQueens :: Int -> Prop [PVar S.Set Coord]
+> initNQueens = ...
+>
+> solution :: [Coord]
+> solution = solve (initNQueens 8) (\readPVar vars -> fmap readPVar vars)
+which converts 'PVar's into a result.Given an action which initializes and constrains a problem 'solveT' will  and returns some container of 'PVar's, 'solveT' will attempt to find a solution which passes all valid constraints.
 -}
-solveT :: (Monad m, Functor f, Typeable (Element g)) => PropT m (f (PVar g)) -> m (Maybe (f (Element g)))
-solveT m = do
+solveT :: forall m a r.
+       Monad m
+       => ((forall f x. Typeable x => PVar f x -> x) -> a -> r)
+       -> PropT m a
+       -> m (Maybe r)
+solveT f m = do
     (a, g) <- buildGraph m
     case P.solve g of
         Nothing -> return Nothing
-        Just solved -> return . Just $ readPVar solved <$> a
+        Just solved -> return . Just $ f (readPVar solved) a
+
 
 {-|
 Like 'solveT', but finds ALL possible solutions. There will likely be duplicates.
 -}
-solveAllT :: (Monad m, Functor f, Typeable (Element g)) => PropT m (f (PVar g)) -> m ([f (Element g)])
-solveAllT m = do
-    (fa, g) <- buildGraph m
+solveAllT :: forall m a r.
+          Monad m
+          => ((forall f x. Typeable x => PVar f x -> x) -> a -> r)
+          -> PropT m a
+          -> m [r]
+solveAllT f m = do
+    (a, g) <- buildGraph m
     let gs = P.solveAll g
-    return $ gs <&> \g' -> (readPVar g') <$> fa
+    return $ gs <&> \g' -> f (readPVar g') a
 
 {-|
 Pure version of 'solveT'
 -}
-solve :: (Functor f, Typeable (Element g)) => Prop (f (PVar g)) -> Maybe (f (Element g))
-solve = runIdentity . solveT
+solve :: forall a r.
+        ((forall f x. Typeable x => PVar f x -> x) -> a -> r)
+      -> Prop a
+      -> (Maybe r)
+solve f = runIdentity . solveT f
 
 {-|
 Pure version of 'solveAllT'
 -}
-solveAll :: (Functor f, Typeable (Element g)) => Prop (f (PVar g)) -> [f (Element g)]
-solveAll = runIdentity . solveAllT
+solveAll :: forall a r.
+            ((forall f x. Typeable x => PVar f x -> x) -> a -> r)
+          -> Prop a
+          -> [r]
+solveAll f = runIdentity . solveAllT f
