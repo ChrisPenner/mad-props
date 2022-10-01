@@ -28,6 +28,7 @@ import Control.Lens
 import Data.Typeable
 import Data.Dynamic
 import Data.Maybe
+import Data.Kind
 
 -- | Pure version of 'PropT'
 type Prop a = PropT Identity a
@@ -44,7 +45,7 @@ newtype PropT m a =
 {-|
 A propagator variable where the possible values @a@ are contained in the container @f@.
 -}
-data PVar (f :: * -> *) a where
+data PVar (f :: Type -> Type) a where
   PVar :: (Typeable a, Typeable f) => Vertex -> PVar f a
 
 -- | Nominal equality, Ignores contents
