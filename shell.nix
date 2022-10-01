@@ -1,9 +1,13 @@
 
 { pkgs ? import <nixpkgs> {}}: with pkgs; 
 
-mkShell {
-  nativeBuildInputs = [
-      cabal2nix
-      ghcid
+let env = (import ./default.nix { }).env;
+
+in mkShell {
+    buildInputs = [
+        (haskellPackages.ghcWithPackages (pkgs: with pkgs; [ env ]))
+	cabal-install
+	cabal2nix
+	ghcid
     ];
   }
