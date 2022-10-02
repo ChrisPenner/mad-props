@@ -120,9 +120,8 @@ For example, if you wrote a solution to the nQueens problem, you might run it li
 > solution = solve fmap (initNQueens 8)
 which converts 'PVar's into a result.Given an action which initializes and constrains a problem 'solveT' will  and returns some container of 'PVar's, 'solveT' will attempt to find a solution which passes all valid constraints.
 -}
-solveT :: forall m a r.
-       Monad m
-       => ((forall f x. PVar f x -> x) -> a -> r)
+solveT :: Monad m
+       => ((PVar f x -> x) -> a -> r)
        -> PropT m a
        -> m (Maybe r)
 solveT f m = do
@@ -135,9 +134,8 @@ solveT f m = do
 {-|
 Like 'solveT', but finds ALL possible solutions. There will likely be duplicates.
 -}
-solveAllT :: forall m a r.
-          Monad m
-          => ((forall f x. PVar f x -> x) -> a -> r)
+solveAllT :: Monad m
+          => ((PVar f x -> x) -> a -> r)
           -> PropT m a
           -> m [r]
 solveAllT f m = do
@@ -148,8 +146,7 @@ solveAllT f m = do
 {-|
 Pure version of 'solveT'
 -}
-solve :: forall a r.
-        ((forall f x. PVar f x -> x) -> a -> r)
+solve :: ((PVar f x -> x) -> a -> r)
       -> Prop a
       -> (Maybe r)
 solve f = runIdentity . solveT f
@@ -157,8 +154,7 @@ solve f = runIdentity . solveT f
 {-|
 Pure version of 'solveAllT'
 -}
-solveAll :: forall a r.
-            ((forall f x. PVar f x -> x) -> a -> r)
+solveAll :: ((PVar f x -> x) -> a -> r)
           -> Prop a
           -> [r]
 solveAll f = runIdentity . solveAllT f
