@@ -3,3 +3,4 @@ wave-function-collapse.cabal
 *~
 /*.prof
 /*.html
+dist-newstyle
